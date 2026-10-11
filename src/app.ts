@@ -268,10 +268,13 @@ function setUp(op: ToolOp) {
     reportLink.href = `${reportLink.href.split('?')[0]}?${params}`;
   });
 
-  let preview: HTMLAudioElement | HTMLImageElement | HTMLPreElement | undefined;
+  let preview: HTMLElement | undefined;
+  let beforeUrl: string | undefined;
   function clearResult() {
     if (outputUrl) URL.revokeObjectURL(outputUrl);
     outputUrl = undefined;
+    if (beforeUrl) URL.revokeObjectURL(beforeUrl);
+    beforeUrl = undefined;
     preview?.remove();
     preview = undefined;
     result.hidden = true;
@@ -464,6 +467,8 @@ function setUp(op: ToolOp) {
     say(t('app.done', { summary: localizeSummary(summary), size: formatSize(blob.size) }));
     preview?.remove();
     preview = undefined;
+    if (beforeUrl) URL.revokeObjectURL(beforeUrl);
+    beforeUrl = undefined;
     if (blob.type.startsWith('audio/')) {
       // Listen before downloading.
       preview = Object.assign(new Audio(outputUrl), { controls: true, className: 'audio-preview' });
@@ -475,6 +480,11 @@ function setUp(op: ToolOp) {
       void blob.text().then((value) => (text.textContent = value));
       preview = text;
       result.prepend(preview);
+    } else if (op === 'image-convert' && files.length === 1 && /\.(jpe?g|png|webp)$/i.test(name)) {
+      // Compare the original and the result before downloading.
+      beforeUrl = URL.createObjectURL(files[0]);
+      preview = compareView(beforeUrl, outputUrl);
+      result.prepend(preview);
     } else if (op === 'mermaid-image') {
       // See the diagram before downloading it.
       preview = Object.assign(new Image(), { src: outputUrl, alt: '', className: 'image-preview' });
@@ -482,6 +492,19 @@ function setUp(op: ToolOp) {
     }
     result.hidden = false;
     download.focus();
+  }
+
+  /** The original under the result, with a slider that moves the line between them (mouse, touch or arrow keys). */
+  function compareView(before: string, after: string) {
+    const view = document.createElement('figure');
+    view.className = 'compare';
+    const image = (src: string, className: string) => Object.assign(new Image(), { src, alt: '', className });
+    const label = (text: string, className: string) => Object.assign(document.createElement('span'), { textContent: text, className });
+    const slider = Object.assign(document.createElement('input'), { type: 'range', min: '0', max: '100', value: '50', className: 'compare-range' });
+    slider.setAttribute('aria-label', `${t('ws.before')} / ${t('ws.after')}`);
+    slider.addEventListener('input', () => view.style.setProperty('--pos', `${slider.value}%`));
+    view.append(image(before, 'compare-before'), image(after, 'compare-after'), label(t('ws.before'), 'compare-label'), label(t('ws.after'), 'compare-label compare-label-after'), slider);
+    return view;
   }
 
   /** Hands a prepared document to the browser's print dialog, where "Save as PDF" writes the file. */

@@ -298,6 +298,33 @@ test('compresses a photo under a form’s size limit while keeping it as large a
   await expect(page.locator('#status')).toContainText('too small for this image');
 });
 
+test('compares the original and the compressed photo with a slider, only for a single image', async ({ page }) => {
+  await page.goto('/compress-image/');
+  await page.locator('#file-input').setInputFiles(file('big-photo.jpg'));
+  await page.getByRole('button', { name: 'Compress images' }).click();
+  const compare = page.locator('.compare');
+  await expect(compare).toBeVisible();
+  // Both pictures have loaded: the original underneath, the result on top.
+  for (const image of ['.compare-before', '.compare-after'])
+    expect(await compare.locator(image).evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(0);
+  const slider = page.getByRole('slider', { name: 'Before / After' });
+  await expect(slider).toHaveValue('50');
+  await slider.focus();
+  await page.keyboard.press('End');
+  await expect(compare).toHaveAttribute('style', /--pos: 100%/);
+  // Dragging works too: a click near the left edge shows almost all of the result.
+  const box = (await compare.boundingBox())!;
+  await page.mouse.click(box.x + box.width * 0.1, box.y + box.height / 2);
+  expect(Number(await slider.inputValue())).toBeLessThan(20);
+  await expect(page.locator('#download')).toBeVisible();
+
+  // Several images make a ZIP, so there is nothing single to compare.
+  await page.locator('#file-input').setInputFiles([file('photo.jpg'), file('big-photo.jpg')]);
+  await page.getByRole('button', { name: 'Compress images' }).click();
+  await expect(page.locator('#status')).toContainText(/\d images/);
+  await expect(compare).toHaveCount(0);
+});
+
 test('converts PDFs to text, Markdown, Word and PowerPoint', async ({ page }) => {
   const seen = watch(page);
   for (const [slug, button, name] of [

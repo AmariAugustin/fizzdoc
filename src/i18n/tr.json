@@ -64,6 +64,8 @@
     "ws.choosePdf": "Bir PDF dosyası seçin",
     "ws.choosePdfs": "PDF dosyaları seçin",
     "ws.chooseImage": "Bir görsel seçin",
+    "ws.before": "Önce",
+    "ws.after": "Sonra",
     "ws.chooseImages": "Görseller seçin",
     "ws.chooseFile": "Bir {ext} dosyası seçin",
     "ws.chooseFiles": "{ext} dosyaları seçin",

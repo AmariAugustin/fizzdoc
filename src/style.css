@@ -1076,6 +1076,93 @@ dialog input {
   border-radius: 10px;
   background: repeating-conic-gradient(#e4e4e7 0 25%, #ffffff 0 50%) 50% / 16px 16px;
 }
+/* Before/after: both images share one grid cell; the result is clipped from the left edge up to --pos. */
+.compare {
+  --pos: 50%;
+  position: relative;
+  display: grid;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: repeating-conic-gradient(#e4e4e7 0 25%, #ffffff 0 50%) 50% / 16px 16px;
+  touch-action: pan-y;
+}
+.compare > * {
+  grid-area: 1 / 1;
+}
+.compare img {
+  display: block;
+  max-width: 100%;
+  max-height: 480px;
+}
+.compare .compare-after {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  clip-path: inset(0 0 0 var(--pos));
+}
+.compare::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 var(--pos);
+  width: 2px;
+  margin-left: -1px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35);
+  pointer-events: none;
+}
+.compare::before {
+  content: '‹ ›';
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: var(--pos);
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 6px rgb(0 0 0 / 0.35);
+  color: #18181b;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.compare:focus-within::after {
+  width: 4px;
+  margin-left: -2px;
+  background: var(--accent);
+}
+.compare-label {
+  align-self: start;
+  justify-self: start;
+  z-index: 1;
+  margin: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.6);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  pointer-events: none;
+}
+.compare-label-after {
+  justify-self: end;
+}
+.compare-range {
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ew-resize;
+}
 .options input:focus,
 .options select:focus,
 .viewer input:not([type='checkbox']):focus,
