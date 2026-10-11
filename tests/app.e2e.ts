@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { devices, expect, test, type Page } from '@playwright/test';
-import { PDFDocument, PDFName } from 'pdf-lib';
+import { PDFDocument, PDFName, PDFRawStream } from 'pdf-lib';
 import { PAGES, SITE_LANGS } from '../src/seo';
 import { SITE, TOOLS } from '../src/site';
 
@@ -215,6 +215,31 @@ test('compresses a PDF and reports the saving', async ({ page }) => {
   await page.getByRole('button', { name: 'Compress PDF' }).click();
   await expect(page.locator('#status')).toContainText(/smaller|Already optimized/);
   expect((await downloadBytes(page)).name).toBe('text-only-compressed.pdf');
+});
+
+test('compresses photos that carry a colour profile, as browsers save them', async ({ page }) => {
+  const pdf = await PDFDocument.create();
+  const image = await pdf.embedJpg(readFileSync(file('big-photo.jpg')));
+  pdf.addPage([600, 450]).drawImage(image, { x: 0, y: 0, width: 600, height: 450 });
+  await pdf.flush();
+  const profile = pdf.context.register(pdf.context.stream(new Uint8Array(16), { N: 3 }));
+  (pdf.context.lookup(image.ref) as PDFRawStream).dict.set(PDFName.of('ColorSpace'), pdf.context.obj(['ICCBased', profile]));
+  const input = Buffer.from(await pdf.save());
+
+  await page.goto('/compress-pdf/');
+  await page.locator('#file-input').setInputFiles({ name: 'profiled.pdf', mimeType: 'application/pdf', buffer: input });
+  await page.locator('[name=level]').selectOption('strong');
+  await page.getByRole('button', { name: 'Compress PDF' }).click();
+  await expect(page.locator('#status')).toContainText('smaller');
+  const { bytes } = await downloadBytes(page);
+  expect(bytes.length).toBeLessThan(input.length / 2);
+  const output = await PDFDocument.load(bytes);
+  expect(output.getPageCount()).toBe(1);
+  const [, photo] = output.context.enumerateIndirectObjects().find(([, o]) => o instanceof PDFRawStream && o.dict.lookup(PDFName.of('Subtype')) === PDFName.of('Image'))!;
+  const dict = (photo as PDFRawStream).dict;
+  expect(dict.lookup(PDFName.of('Filter'))).toBe(PDFName.of('DCTDecode'));
+  expect(dict.lookup(PDFName.of('Width'))?.toString()).toBe('1400'); // strong caps the long side at 1400 px
+  expect(dict.lookup(PDFName.of('ColorSpace'))?.toString()).toMatch(/ICCBased/);
 });
 
 test('resizes and converts images with the chosen options', async ({ page }) => {

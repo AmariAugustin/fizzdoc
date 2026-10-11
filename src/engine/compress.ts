@@ -67,7 +67,7 @@ export const browserCodec: ImageCodec = {
  * browser; `compressPdf` below is the thin wrapper the app actually calls.
  */
 export async function compressPdfBytes(input: Uint8Array, level: Level['level'], codec: ImageCodec = browserCodec): Promise<Uint8Array> {
-  const { PDFDocument, PDFName, PDFNumber, PDFRawStream } = await import('pdf-lib');
+  const { PDFArray, PDFDocument, PDFName, PDFNumber, PDFRawStream } = await import('pdf-lib');
   let pdf;
   try {
     pdf = await PDFDocument.load(input);
@@ -86,14 +86,34 @@ export async function compressPdfBytes(input: Uint8Array, level: Level['level'],
   const WIDTH = PDFName.of('Width'), HEIGHT = PDFName.of('Height');
   const COLORSPACE = PDFName.of('ColorSpace'), BPC = PDFName.of('BitsPerComponent');
   const DECODE_PARMS = PDFName.of('DecodeParms'), LENGTH = PDFName.of('Length');
+  const SMASK = PDFName.of('SMask'), ICC = PDFName.of('ICCBased'), N = PDFName.of('N');
+
+  /** 1 or 3 for gray or RGB data, including colour-profiled (ICCBased) gray and RGB as saved by browsers and most PDF makers. */
+  const channels = (colorSpace: unknown) => {
+    if (colorSpace === GRAY) return 1;
+    if (colorSpace === RGB) return 3;
+    if (!(colorSpace instanceof PDFArray) || colorSpace.lookup(0) !== ICC) return undefined;
+    const profile = colorSpace.lookup(1);
+    const n = profile instanceof PDFRawStream ? profile.dict.lookup(N) : undefined;
+    return n instanceof PDFNumber && (n.asNumber() === 1 || n.asNumber() === 3) ? n.asNumber() : undefined;
+  };
+
+  // Soft masks must stay single-channel images, so they are never re-encoded as (RGB) JPEG. Their
+  // parent image can be: a soft mask may have a different size from the image it belongs to.
+  const softMasks = new Set<unknown>();
+  for (const [, object] of context.enumerateIndirectObjects()) {
+    if (object instanceof PDFRawStream && object.dict.lookup(SUBTYPE) === IMAGE) softMasks.add(object.dict.get(SMASK));
+  }
 
   for (const [ref, object] of context.enumerateIndirectObjects()) {
     if (!(object instanceof PDFRawStream)) continue;
     const dict = object.dict;
-    if (dict.lookup(SUBTYPE) !== IMAGE) continue;
-    // A soft mask, stencil mask or custom decode array would no longer match the image after
-    // it is resized and recompressed, so those are left untouched rather than risk corrupting them.
-    if (dict.has(PDFName.of('SMask')) || dict.has(PDFName.of('Mask')) || dict.has(PDFName.of('Decode')) || dict.has(PDFName.of('ImageMask'))) continue;
+    if (dict.lookup(SUBTYPE) !== IMAGE || softMasks.has(ref)) continue;
+    // A colour-key mask, stencil mask or custom decode array would no longer match the image after
+    // it is recompressed, and a /Matte soft mask expects the exact original colours, so those are left untouched.
+    if (dict.has(PDFName.of('Mask')) || dict.has(PDFName.of('Decode')) || dict.has(PDFName.of('ImageMask'))) continue;
+    const mask = dict.lookup(SMASK);
+    if (mask instanceof PDFRawStream && mask.dict.has(PDFName.of('Matte'))) continue;
 
     const width = dict.lookup(WIDTH);
     const height = dict.lookup(HEIGHT);
@@ -101,17 +121,16 @@ export async function compressPdfBytes(input: Uint8Array, level: Level['level'],
     const w = width.asNumber();
     const h = height.asNumber();
     const filter = dict.lookup(FILTER);
-    const colorSpace = dict.lookup(COLORSPACE);
+    const components = channels(dict.lookup(COLORSPACE));
     const bpc = dict.lookup(BPC);
     const is8bit = !bpc || (bpc instanceof PDFNumber && bpc.asNumber() === 8);
     const original = object.getContents();
 
     let recompressed: { data: Uint8Array; width: number; height: number } | undefined;
     try {
-      if (filter === DCT && is8bit && (colorSpace === RGB || colorSpace === GRAY)) {
+      if (filter === DCT && is8bit && components) {
         recompressed = await codec.recompressJpeg(original, maxSide, quality);
-      } else if (filter === FLATE && is8bit && !dict.has(DECODE_PARMS) && (colorSpace === RGB || colorSpace === GRAY)) {
-        const components = colorSpace === GRAY ? 1 : 3;
+      } else if (filter === FLATE && is8bit && !dict.has(DECODE_PARMS) && components) {
         const decoded = unzlibSync(original);
         if (decoded.length === w * h * components) {
           const rgba = new Uint8Array(w * h * 4);
@@ -130,14 +149,15 @@ export async function compressPdfBytes(input: Uint8Array, level: Level['level'],
     if (!recompressed || recompressed.data.length >= original.length) continue;
 
     // Re-encoding always yields a plain baseline JPEG (canvas has no single-channel output), so a
-    // DeviceGray source becomes DeviceRGB here; when that isn't smaller the image above is left
+    // gray source becomes DeviceRGB here; when that isn't smaller the image above is left
     // alone, so a gray image that already compresses well simply keeps its original gray data.
+    // An RGB colour space (with its colour profile, if any) still describes the new pixels, so it is kept.
     const newDict = dict.clone(context);
     newDict.set(FILTER, DCT);
     newDict.delete(DECODE_PARMS);
     newDict.set(WIDTH, PDFNumber.of(recompressed.width));
     newDict.set(HEIGHT, PDFNumber.of(recompressed.height));
-    newDict.set(COLORSPACE, RGB);
+    if (components === 1) newDict.set(COLORSPACE, RGB);
     newDict.set(BPC, PDFNumber.of(8));
     newDict.set(LENGTH, PDFNumber.of(recompressed.data.length));
     context.assign(ref, PDFRawStream.of(newDict, recompressed.data));
