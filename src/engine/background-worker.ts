@@ -10,8 +10,11 @@ import { planesFromRGBA, refine } from './matte';
 
 export type BackgroundModel = 'birefnet-lite' | 'birefnet-lite-1024' | 'u2netp';
 /** `fast` asks for speed over the finest edges: animations use it, with many frames to do. */
-/** `sharp` asks for the 1024 px model on the graphics chip: finer hair and fur, for one photo at a time. */
-export type ToBackground = { type: 'run'; id: number; image: ImageBitmap; fast?: boolean; sharp?: boolean } | { type: 'mask'; id: number; image: ImageBitmap; fast?: boolean };
+/** `sharp` asks for the 1024 px model on the graphics chip: finer hair and fur, for one photo at a time.
+ *  `lite` (phones, or a device where the big model once crashed the tab) always uses the small model. */
+export type ToBackground =
+  | { type: 'run'; id: number; image: ImageBitmap; fast?: boolean; sharp?: boolean; lite?: boolean }
+  | { type: 'mask'; id: number; image: ImageBitmap; fast?: boolean; lite?: boolean };
 export type FromBackground =
   | { type: 'setup'; loaded: number; total: number }
   | { type: 'progress'; id: number; fraction: number }
@@ -182,7 +185,18 @@ async function sharpMaskOf(image: ImageBitmap): Promise<{ mask: Float32Array; mo
   }
 }
 
-async function maskOf(image: ImageBitmap, fast = false): Promise<{ mask: Float32Array; model: BackgroundModel; gpu: boolean }> {
+async function maskOf(image: ImageBitmap, fast = false, lite = false): Promise<{ mask: Float32Array; model: BackgroundModel; gpu: boolean }> {
+  if (lite) {
+    // Phones: the big model can use more memory than the browser allows a tab, and a tab that runs
+    // out is killed outright (no error to catch), so phones go straight to the small one, on the CPU.
+    const loaded = await engine?.catch(() => undefined);
+    if (loaded?.model !== 'u2netp') {
+      await loaded?.session.release().catch(() => {});
+      engine = start('u2netp', false);
+    }
+    const current = await engine!;
+    return { mask: await predict(current, image), model: current.model, gpu: false };
+  }
   const fallbacks: [BackgroundModel, boolean][] = [];
   // Without a GPU the big model takes seconds per picture: fine for a photo, too slow for 40 frames.
   if (fast !== speedPick && !(await gpuReady)) {
@@ -240,11 +254,11 @@ function resizeMask(mask: Float32Array, size: number, w: number, h: number) {
   return out;
 }
 
-async function cutOut(id: number, image: ImageBitmap, fast?: boolean, sharp?: boolean) {
+async function cutOut(id: number, image: ImageBitmap, fast?: boolean, sharp?: boolean, lite?: boolean) {
   const W = image.width;
   const H = image.height;
   post({ type: 'progress', id, fraction: 0.05 });
-  const { mask, model, gpu } = sharp ? await sharpMaskOf(image) : await maskOf(image, fast);
+  const { mask, model, gpu } = sharp && !lite ? await sharpMaskOf(image) : await maskOf(image, fast, lite);
   post({ type: 'progress', id, fraction: 0.7 });
   // A reduced copy for the refinement, and the full-size pixels it is applied to.
   const scale = Math.min(1, (fast ? REFINE_SIZE_FAST : REFINE_SIZE) / Math.max(W, H));
@@ -265,9 +279,9 @@ async function cutOut(id: number, image: ImageBitmap, fast?: boolean, sharp?: bo
 
 self.onmessage = async ({ data }: MessageEvent<ToBackground>) => {
   try {
-    if (data.type === 'run') await cutOut(data.id, data.image, data.fast, data.sharp);
+    if (data.type === 'run') await cutOut(data.id, data.image, data.fast, data.sharp, data.lite);
     else {
-      const { mask, model } = await maskOf(data.image, data.fast);
+      const { mask, model } = await maskOf(data.image, data.fast, data.lite);
       data.image.close();
       post({ type: 'mask', id: data.id, size: MODELS[model].size, mask, model }, [mask.buffer]);
     }
