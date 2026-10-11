@@ -136,11 +136,17 @@ Most free online file tools ask you to upload your contract, payslip, bank state
 
 Fizzdoc also runs as a local [MCP](https://modelcontextprotocol.io) server, so Claude Code, Codex, Claude Desktop, Cursor and other AI agents can merge, split, rotate, protect or unlock PDFs and trim, split or join MP3/M4A **on your machine**, with nothing uploaded.
 
+It's published on npm as [`fizzdoc-mcp`](https://www.npmjs.com/package/fizzdoc-mcp). The tools:
+
+- **PDF:** merge, split, extract, reorder, delete and rotate pages, add or remove a password, remove hidden metadata, page count
+- **Audio:** trim, split and join MP3/M4A without re-encoding
+- **Office:** remove author, company and other hidden metadata from .docx, .xlsx and .pptx
+
 ```sh
 claude mcp add fizzdoc -- npx -y fizzdoc-mcp
 ```
 
-Setup for Codex and other clients, and the full tool list: [mcp/README.md](mcp/README.md).
+On Windows, use `claude mcp add fizzdoc -- cmd /c npx -y fizzdoc-mcp`. Setup for Codex and other clients, and the full tool list: [mcp/README.md](mcp/README.md). Image tools are on the way ([#61](https://github.com/kingrishabdugar/fizzdoc/issues/61)).
 
 ## 🔒 Private by design — verify it yourself
 
