@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import type { Plugin } from 'vite';
+import { serveAssets } from './serve-assets.ts';
 
 const require = createRequire(import.meta.url);
 const NAME = 'ort-wasm-simd-threaded.asyncify.wasm';
@@ -34,21 +34,6 @@ function files() {
   return parts;
 }
 
-export function backgroundAssets(): Plugin {
-  const served = files();
-  return {
-    name: 'fizzdoc-background-assets',
-    configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        const match = /^\/bg\/ort\/([^/?]+)/.exec(req.url ?? '');
-        const body = match && served.get(match[1]);
-        if (!body) return next();
-        res.setHeader('Content-Type', match[1].endsWith('.json') ? 'application/json' : match[1].endsWith('.mjs') ? 'text/javascript' : 'application/octet-stream');
-        res.end(body);
-      });
-    },
-    generateBundle() {
-      for (const [name, source] of served) this.emitFile({ type: 'asset', fileName: `bg/ort/${name}`, source });
-    },
-  };
+export function backgroundAssets() {
+  return serveAssets('fizzdoc-background-assets', 'bg/ort', files());
 }
