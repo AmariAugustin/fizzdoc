@@ -108,28 +108,56 @@ describe('compressPdfBytes', () => {
     expect(image.dict.lookup(PDFName.of('ColorSpace'))).toBe(PDFName.of('DeviceRGB'));
   });
 
-  it('skips a Flate image that carries a soft mask', async () => {
+  /** An RGB image with a gray soft mask (how browsers save a PNG with transparency); `matte` marks pre-blended colours. */
+  async function pdfWithSoftMask(matte = false) {
     const pdf = await PDFDocument.create();
-    const pixels = zlibSync(new Uint8Array(40 * 20 * 3).fill(128));
-    const mask = pdf.context.register(pdf.context.stream(zlibSync(new Uint8Array(40 * 20).fill(255)), {
+    const mask = pdf.context.register(pdf.context.stream(zlibSync(new Uint8Array(40 * 20).map((_, i) => i % 256)), {
       Type: 'XObject', Subtype: 'Image', Width: 40, Height: 20, ColorSpace: 'DeviceGray', BitsPerComponent: 8, Filter: 'FlateDecode',
+      ...(matte ? { Matte: [0, 0, 0] } : {}),
     }));
-    const stream = pdf.context.stream(pixels, {
+    pdf.context.register(pdf.context.stream(zlibSync(new Uint8Array(40 * 20 * 3).fill(128)), {
       Type: 'XObject', Subtype: 'Image', Width: 40, Height: 20, ColorSpace: 'DeviceRGB', BitsPerComponent: 8, Filter: 'FlateDecode', SMask: mask,
-    });
-    pdf.context.register(stream);
-    const input = await pdf.save();
-    const mainImage = (loaded: PDFDocument) =>
-      loaded.context
-        .enumerateIndirectObjects()
-        .map(([, o]) => o)
-        .find((o): o is PDFRawStream => o instanceof PDFRawStream && o.dict.has(PDFName.of('SMask')))!;
-    const before = mainImage(await PDFDocument.load(input));
+    }));
+    return pdf.save();
+  }
+  const images = (pdf: PDFDocument) =>
+    pdf.context.enumerateIndirectObjects().map(([, o]) => o).filter((o): o is PDFRawStream => o instanceof PDFRawStream && o.dict.lookup(PDFName.of('Subtype')) === PDFName.of('Image'));
+  const withMask = (pdf: PDFDocument) => images(pdf).find((o) => o.dict.has(PDFName.of('SMask')))!;
+  const theMask = (pdf: PDFDocument) => images(pdf).find((o) => !o.dict.has(PDFName.of('SMask')))!;
+
+  it('recompresses an image with a soft mask but never the mask itself', async () => {
+    const input = await pdfWithSoftMask();
+    const maskBefore = theMask(await PDFDocument.load(input)).getContents();
     const output = await compressPdfBytes(input, 'light', fakeCodec(true));
-    const images = (await PDFDocument.load(output)).context.enumerateIndirectObjects().filter(([, o]) => o instanceof PDFRawStream && o.dict.lookup(PDFName.of('Subtype')) === PDFName.of('Image'));
-    expect(images).toHaveLength(2);
-    const after = mainImage(await PDFDocument.load(output));
-    expect(after.getContents()).toEqual(before.getContents());
+    const loaded = await PDFDocument.load(output);
+    expect(images(loaded)).toHaveLength(2);
+    expect(withMask(loaded).dict.lookup(PDFName.of('Filter'))).toBe(PDFName.of('DCTDecode'));
+    expect(withMask(loaded).dict.lookup(PDFName.of('SMask'))).toBe(theMask(loaded));
+    expect(theMask(loaded).dict.lookup(PDFName.of('Filter'))).toBe(PDFName.of('FlateDecode'));
+    expect(theMask(loaded).getContents()).toEqual(maskBefore);
+  });
+
+  it('skips an image whose soft mask expects pre-blended (/Matte) colours', async () => {
+    const input = await pdfWithSoftMask(true);
+    const before = withMask(await PDFDocument.load(input)).getContents();
+    const output = await compressPdfBytes(input, 'light', fakeCodec(true));
+    expect(withMask(await PDFDocument.load(output)).getContents()).toEqual(before);
+  });
+
+  it('recompresses colour-profiled (ICCBased) RGB and gray images, keeping an RGB profile', async () => {
+    for (const n of [3, 1]) {
+      const pdf = await PDFDocument.create();
+      const profile = pdf.context.register(pdf.context.stream(new Uint8Array(16), { N: n }));
+      pdf.context.register(pdf.context.stream(zlibSync(new Uint8Array(40 * 20 * n).fill(128)), {
+        Type: 'XObject', Subtype: 'Image', Width: 40, Height: 20, ColorSpace: ['ICCBased', profile], BitsPerComponent: 8, Filter: 'FlateDecode',
+      }));
+      const output = await compressPdfBytes(await pdf.save(), 'light', fakeCodec(true));
+      const image = findImage(await PDFDocument.load(output));
+      expect(image.dict.lookup(PDFName.of('Filter'))).toBe(PDFName.of('DCTDecode'));
+      const colorSpace = image.dict.lookup(PDFName.of('ColorSpace'));
+      if (n === 1) expect(colorSpace).toBe(PDFName.of('DeviceRGB'));
+      else expect(colorSpace?.toString()).toMatch(/^\[ \/ICCBased \d+ 0 R \]$/);
+    }
   });
 
   it('skips images with an unsupported filter or color space', async () => {
