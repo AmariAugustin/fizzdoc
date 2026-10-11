@@ -17,6 +17,19 @@ function watch(page: Page) {
   return { requests, violations };
 }
 
+type Point = { x: number; y: number };
+
+/** A real finger for touch tests: each call slides it from one point to another in 8 steps. */
+async function fingerOn(page: Page) {
+  const cdp = await page.context().newCDPSession(page);
+  return async (from: Point, to: Point) => {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [from] });
+    for (let i = 1; i <= 8; i++)
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from.x + ((to.x - from.x) * i) / 8, y: from.y + ((to.y - from.y) * i) / 8 }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  };
+}
+
 async function downloadBytes(page: Page) {
   const [download] = await Promise.all([page.waitForEvent('download'), page.locator('#download').click()]);
   return { name: download.suggestedFilename(), bytes: readFileSync((await download.path())!) };
@@ -343,13 +356,7 @@ test('on a phone, a sideways swipe moves the comparison line and an upward swipe
   const compare = page.locator('.compare');
   await expect(compare.locator('.compare-after')).toBeVisible();
   await compare.scrollIntoViewIfNeeded();
-  const cdp = await context.newCDPSession(page);
-  const swipe = async (from: { x: number; y: number }, to: { x: number; y: number }) => {
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [from] });
-    for (let i = 1; i <= 8; i++)
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from.x + ((to.x - from.x) * i) / 8, y: from.y + ((to.y - from.y) * i) / 8 }] });
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  };
+  const swipe = await fingerOn(page);
   const box = (await compare.boundingBox())!;
   const middle = box.y + box.height / 2;
   const value = async () => Number(await page.locator('.compare-range').inputValue());
@@ -473,13 +480,7 @@ test('scrolls the redact pages with a finger, and draws with one after “Draw b
   await page.locator('#file-input').setInputFiles(fixture('rich-text'));
   const scroll = page.locator('.redact-scroll');
   await expect(page.locator('.redact-page').first().locator('canvas')).toBeVisible();
-  const cdp = await context.newCDPSession(page);
-  const drag = async (from: { x: number; y: number }, to: { x: number; y: number }) => {
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [from] });
-    for (let i = 1; i <= 8; i++)
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from.x + ((to.x - from.x) * i) / 8, y: from.y + ((to.y - from.y) * i) / 8 }] });
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  };
+  const drag = await fingerOn(page);
 
   // A swipe on the page scrolls (the pages or the whole site) and draws nothing.
   const scrolled = () => scroll.evaluate((el) => el.scrollTop + scrollY);
