@@ -4,9 +4,9 @@
 // a dedicated worker) rather than the core .js file's URL, so the worker and its core files must
 // live in the same directory with stable names for that lookup to succeed.
 import { createRequire } from 'node:module';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import type { Plugin } from 'vite';
+import { serveAssets } from './serve-assets.ts';
 
 const require = createRequire(import.meta.url);
 
@@ -18,44 +18,12 @@ const FILES: [name: string, pkg: string, path: string][] = [
   ['eng.traineddata.gz', '@tesseract.js-data/eng', '4.0.0_best_int/eng.traineddata.gz'],
 ];
 
-const TYPES: Record<string, string> = {
-  '.js': 'text/javascript',
-  '.wasm': 'application/wasm',
-  '.gz': 'application/octet-stream',
-};
-
-function resolveAll(): Record<string, string> {
-  const out: Record<string, string> = {};
+export function ocrAssets() {
+  const files = new Map<string, string>();
   for (const [name, pkg, path] of FILES) {
-    const root = dirname(require.resolve(`${pkg}/package.json`));
-    const full = join(root, path);
+    const full = join(dirname(require.resolve(`${pkg}/package.json`)), path);
     if (!existsSync(full)) throw new Error(`ocr-assets: missing ${full} (from ${pkg})`);
-    out[name] = full;
+    files.set(name, full);
   }
-  return out;
-}
-
-/** Add to vite.config.ts: `import { ocrAssets } from './vite-plugins/ocr-assets';` and include
- * `ocrAssets()` in the `plugins` array. */
-export function ocrAssets(): Plugin {
-  const files = resolveAll();
-  return {
-    name: 'fizzdoc-ocr-assets',
-    configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        const url = req.url?.split('?')[0] ?? '';
-        const match = /^\/ocr\/([^/]+)$/.exec(url);
-        const path = match && files[match[1]];
-        if (!path) return next();
-        const ext = match[1].slice(match[1].lastIndexOf('.'));
-        res.setHeader('Content-Type', TYPES[ext] ?? 'application/octet-stream');
-        res.end(readFileSync(path));
-      });
-    },
-    generateBundle() {
-      for (const [name, path] of Object.entries(files)) {
-        this.emitFile({ type: 'asset', fileName: `ocr/${name}`, source: readFileSync(path) });
-      }
-    },
-  };
+  return serveAssets('fizzdoc-ocr-assets', 'ocr', files);
 }
