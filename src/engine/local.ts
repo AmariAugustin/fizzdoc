@@ -25,8 +25,37 @@ export class LocalError extends Error {
   }
 }
 
-const baseName = (file: File) => file.name.replace(/\.[^.]+$/, '');
-const bytes = async (file: Blob) => new Uint8Array(await file.arrayBuffer());
+export const baseName = (file: File) => file.name.replace(/\.[^.]+$/, '');
+export const bytes = async (file: Blob) => new Uint8Array(await file.arrayBuffer());
+
+type PdfJs = typeof import('pdfjs-dist/legacy/build/pdf.mjs');
+export type PdfDoc = Awaited<ReturnType<PdfJs['getDocument']>['promise']>;
+type PdfPage = Awaited<ReturnType<PdfDoc['getPage']>>;
+
+/** Opens a PDF with pdf.js (legacy = polyfilled for browsers from 2023 on); a password or a damaged file becomes a LocalError. */
+export async function openPdf(data: Blob | Uint8Array): Promise<PdfDoc> {
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  // In Node (unit tests) pdf.js runs in-process; in the browser it uses its bundled worker.
+  if (typeof window !== 'undefined') {
+    pdfjs.GlobalWorkerOptions.workerSrc = (await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url')).default;
+  }
+  try {
+    return await pdfjs.getDocument({ data: data instanceof Uint8Array ? data : await bytes(data) }).promise;
+  } catch (error) {
+    throw new LocalError((error as { name?: string }).name === 'PasswordException' ? 'PDF_PASSWORD' : 'INVALID_PDF');
+  }
+}
+
+/** Draws a page at `dpi` on white paper (PDFs assume it, and JPEG has no transparency) and encodes it. */
+export async function renderPage(page: PdfPage, dpi: number, type: 'image/jpeg' | 'image/png', quality?: number) {
+  const viewport = page.getViewport({ scale: dpi / 72 }); // PDF units are 1/72 inch
+  const canvas = new OffscreenCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+  const context = canvas.getContext('2d')!;
+  context.fillStyle = '#fff';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  await page.render({ canvas: canvas as unknown as HTMLCanvasElement, canvasContext: context as unknown as CanvasRenderingContext2D, viewport }).promise;
+  return { blob: await canvas.convertToBlob({ type, quality }), width: canvas.width, height: canvas.height };
+}
 
 function openPackage(data: Uint8Array) {
   try {
@@ -121,14 +150,7 @@ export async function imagesToPdf(files: File[]): Promise<Output> {
 
 /** Renders every page to a JPEG (or PNG) at `dpi` (150 by default) with pdf.js; several pages come back as a ZIP. */
 export async function pdfToImages(file: File, format: 'jpg' | 'png' = 'jpg', dpi = 150): Promise<Output> {
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs'); // legacy = polyfilled for browsers from 2023 on
-  pdfjs.GlobalWorkerOptions.workerSrc = (await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url')).default;
-  let doc;
-  try {
-    doc = await pdfjs.getDocument({ data: await bytes(file) }).promise;
-  } catch (error) {
-    throw new LocalError((error as { name?: string }).name === 'PasswordException' ? 'PDF_PASSWORD' : 'INVALID_PDF');
-  }
+  const doc = await openPdf(file);
   // Every page's JPEG is held in memory until the ZIP is built; stream the ZIP if
   // 1000-page PDFs on phones become a real use case.
   const images: Zippable = {};
@@ -136,13 +158,7 @@ export async function pdfToImages(file: File, format: 'jpg' | 'png' = 'jpg', dpi
   let last: Blob | undefined;
   for (let number = 1; number <= doc.numPages; number++) {
     const page = await doc.getPage(number);
-    const viewport = page.getViewport({ scale: dpi / 72 }); // PDF units are 1/72 inch
-    const canvas = new OffscreenCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
-    const context = canvas.getContext('2d')!;
-    context.fillStyle = '#fff'; // JPEG has no transparency; PDFs assume white paper.
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    await page.render({ canvas: canvas as unknown as HTMLCanvasElement, canvasContext: context as unknown as CanvasRenderingContext2D, viewport }).promise;
-    last = await canvas.convertToBlob(format === 'png' ? { type: 'image/png' } : { type: 'image/jpeg', quality: 0.9 });
+    last = (await (format === 'png' ? renderPage(page, dpi, 'image/png') : renderPage(page, dpi, 'image/jpeg', 0.9))).blob;
     images[`${name}-page-${String(number).padStart(3, '0')}.${format}`] = [await bytes(last), { level: 0 }];
     page.cleanup();
   }
