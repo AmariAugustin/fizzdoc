@@ -41,6 +41,12 @@ You need [Node.js](https://nodejs.org) 20 or newer.
 claude mcp add fizzdoc -- npx -y fizzdoc-mcp
 ```
 
+On Windows, `npx` has to be started through `cmd`:
+
+```sh
+claude mcp add fizzdoc -- cmd /c npx -y fizzdoc-mcp
+```
+
 ### Codex CLI
 
 Add to `~/.codex/config.toml`:
