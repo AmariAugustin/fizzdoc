@@ -1,6 +1,6 @@
 {
   "name": "fizzdoc-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Fizzdoc's PDF and audio tools for AI agents, as a local MCP server. Files never leave your machine.",
   "type": "module",
   "bin": {
