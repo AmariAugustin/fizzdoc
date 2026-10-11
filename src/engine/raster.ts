@@ -1,7 +1,7 @@
 // Redraws every page of a PDF as an image. Redact PDF burns its marks in, so the text under them is
 // gone from the file, and PDF to scanned PDF uses the same path with an optional scanner look.
 import { PDFDocument, PDFHexString, PDFOperator, PDFOperatorNames as Op, PDFNumber, type PDFRef } from 'pdf-lib';
-import { LocalError, type Output } from './local';
+import { openPdf, type Output, type PdfDoc } from './local';
 
 /** A marked area in PDF user space (unrotated page coordinates, y up). */
 export interface Box {
@@ -155,18 +155,6 @@ function visible(context: OffscreenCanvasRenderingContext2D, viewport: { convert
   return inked > 0;
 }
 
-type PdfJs = typeof import('pdfjs-dist/legacy/build/pdf.mjs');
-export type PdfDoc = Awaited<ReturnType<PdfJs['getDocument']>['promise']>;
-
-export async function openPdf(file: File): Promise<PdfDoc> {
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  pdfjs.GlobalWorkerOptions.workerSrc = (await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url')).default;
-  try {
-    return await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
-  } catch (error) {
-    throw new LocalError((error as { name?: string }).name === 'PasswordException' ? 'PDF_PASSWORD' : 'INVALID_PDF');
-  }
-}
 
 /** Small, fixed tile of paper grain, laid over "scanned" pages. Deterministic so tests are stable. */
 function grain() {

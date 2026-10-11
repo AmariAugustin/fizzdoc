@@ -2,7 +2,8 @@
 // as an image with the marks burned in (engine/raster.ts), so what was covered is gone from the file.
 import './redact-pdf.css';
 import type { Output } from '../engine/local';
-import { openPdf, rasterize, type Box, type RasterOptions } from '../engine/raster';
+import { openPdf } from '../engine/local';
+import { rasterize, type Box, type RasterOptions } from '../engine/raster';
 import { t } from '../i18n';
 import { groupTextRuns, type TextItemLike } from './edit-pdf';
 

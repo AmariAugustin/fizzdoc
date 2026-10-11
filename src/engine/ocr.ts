@@ -4,7 +4,7 @@
 // Everything here is loaded with a dynamic import so the ~6 MB of OCR assets are only fetched the
 // first time an OCR tool actually runs.
 import type { PDFFont } from 'pdf-lib';
-import { LocalError, type Output } from './local';
+import { LocalError, openPdf, type Output } from './local';
 
 export interface Word {
   text: string;
@@ -236,14 +236,7 @@ export async function ocrPdf(file: File, onProgress?: (fraction: number) => void
     throw new LocalError(encrypted ? 'PDF_PASSWORD' : 'INVALID_PDF');
   }
 
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  pdfjs.GlobalWorkerOptions.workerSrc = (await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url')).default;
-  let doc;
-  try {
-    doc = await pdfjs.getDocument({ data: bytes }).promise;
-  } catch (error) {
-    throw new LocalError((error as { name?: string }).name === 'PasswordException' ? 'PDF_PASSWORD' : 'INVALID_PDF');
-  }
+  const doc = await openPdf(bytes);
 
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const pages = pdf.getPages();

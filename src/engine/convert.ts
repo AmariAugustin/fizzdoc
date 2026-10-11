@@ -2,10 +2,8 @@
 // spreadsheet <-> CSV conversion. Office spreadsheets are ZIP packages of XML parts, so fflate
 // plus small regex-based readers are enough — no DOM parser, no xlsx library needed.
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
-import { LocalError, type Output } from './local';
+import { LocalError, baseName, bytes, openPdf, type Output } from './local';
 
-const baseName = (file: File) => file.name.replace(/\.[^.]+$/, '');
-const bytes = async (file: Blob) => new Uint8Array(await file.arrayBuffer());
 const plural = (n: number, word: string) => `${n.toLocaleString('en-US')} ${word}${n === 1 ? '' : 's'}`;
 
 // ---------------------------------------------------------------------------------------------
@@ -158,18 +156,7 @@ function renderMd(pages: Block[][]): string {
 }
 
 export async function pdfToText(file: File, options: { format: 'txt' | 'md' }): Promise<Output> {
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  // pdf.js falls back to an in-process "fake worker" when no workerSrc is set and no worker can be
-  // spawned (Node); in the browser we point it at the same bundled worker pdfToImages uses.
-  if (typeof window !== 'undefined') {
-    pdfjs.GlobalWorkerOptions.workerSrc = (await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url')).default;
-  }
-  let doc;
-  try {
-    doc = await pdfjs.getDocument({ data: await bytes(file) }).promise;
-  } catch (error) {
-    throw new LocalError((error as { name?: string }).name === 'PasswordException' ? 'PDF_PASSWORD' : 'INVALID_PDF');
-  }
+  const doc = await openPdf(file);
   const pageBlocks: Block[][] = [];
   let words = 0;
   for (let number = 1; number <= doc.numPages; number++) {

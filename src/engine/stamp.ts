@@ -1,10 +1,9 @@
 // Page numbers and text watermarks, drawn onto existing pages with pdf-lib. The original page
 // content is kept as it is; the stamp is added on top.
-import { LocalError, type Output } from './local';
+import { LocalError, baseName, type Output } from './local';
 
 export type NumberPosition = 'bottom-center' | 'bottom-right' | 'top-right';
 
-const baseName = (file: File) => file.name.replace(/\.[^.]+$/, '');
 
 async function load(file: File) {
   const { PDFDocument } = await import('pdf-lib');

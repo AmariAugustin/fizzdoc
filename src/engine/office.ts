@@ -3,10 +3,8 @@
 // tolerant tokenizer stands in for one below instead of pulling in a real XML library.
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
 import { fixIndic } from './convert';
-import { LocalError, type Output } from './local';
+import { LocalError, baseName, bytes, openPdf, renderPage, type Output } from './local';
 
-const baseName = (file: File) => file.name.replace(/\.[^.]+$/, '');
-const bytes = async (file: Blob) => new Uint8Array(await file.arrayBuffer());
 
 // ---------------------------------------------------------------------------
 // Tiny tolerant XML reader. Produces a plain node tree; namespace prefixes are
@@ -645,14 +643,7 @@ export function buildDocxPackage(pages: DocParagraph[][], pageSize: { widthPt: n
 }
 
 export async function pdfToDocx(file: File): Promise<Output> {
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  pdfjs.GlobalWorkerOptions.workerSrc = (await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url')).default;
-  let doc;
-  try {
-    doc = await pdfjs.getDocument({ data: await bytes(file) }).promise;
-  } catch (error) {
-    throw new LocalError((error as { name?: string }).name === 'PasswordException' ? 'PDF_PASSWORD' : 'INVALID_PDF');
-  }
+  const doc = await openPdf(file);
   const pages: DocParagraph[][] = [];
   let widthPt = 612;
   let heightPt = 792;
@@ -690,25 +681,12 @@ export interface PageImage { width: number; height: number; jpeg: Uint8Array }
 
 /** Renders every PDF page to a full-page JPEG. Browser-only (OffscreenCanvas); not unit-testable in Node. */
 export async function renderPdfPagesToJpeg(file: File, dpi = 150): Promise<PageImage[]> {
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  pdfjs.GlobalWorkerOptions.workerSrc = (await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url')).default;
-  let doc;
-  try {
-    doc = await pdfjs.getDocument({ data: await bytes(file) }).promise;
-  } catch (error) {
-    throw new LocalError((error as { name?: string }).name === 'PasswordException' ? 'PDF_PASSWORD' : 'INVALID_PDF');
-  }
+  const doc = await openPdf(file);
   const images: PageImage[] = [];
   for (let number = 1; number <= doc.numPages; number++) {
     const page = await doc.getPage(number);
-    const viewport = page.getViewport({ scale: dpi / 72 });
-    const canvas = new OffscreenCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
-    const context = canvas.getContext('2d')!;
-    context.fillStyle = '#fff';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    await page.render({ canvas: canvas as unknown as HTMLCanvasElement, canvasContext: context as unknown as CanvasRenderingContext2D, viewport }).promise;
-    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 });
-    images.push({ width: canvas.width, height: canvas.height, jpeg: await bytes(blob) });
+    const { blob, width, height } = await renderPage(page, dpi, 'image/jpeg', 0.85);
+    images.push({ width, height, jpeg: await bytes(blob) });
     page.cleanup();
   }
   await doc.loadingTask.destroy();

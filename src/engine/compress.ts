@@ -1,10 +1,8 @@
 // Shrinks PDFs, Office packages and images by recompressing their embedded raster pictures.
 // Text, fonts and vector drawing are never touched, so PDF text stays selectable.
 import { unzlibSync, zipSync, type Zippable } from 'fflate';
-import { LocalError, type Output } from './local';
+import { LocalError, baseName, bytes, type Output } from './local';
 
-const baseName = (file: File) => file.name.replace(/\.[^.]+$/, '');
-const bytes = async (blob: Blob) => new Uint8Array(await blob.arrayBuffer());
 
 export interface Level {
   level: 'light' | 'strong';
