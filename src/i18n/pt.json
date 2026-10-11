@@ -232,7 +232,7 @@
     "bg.previewLabel": "Sua foto com o novo fundo",
     "bg.preparing": "Preparando o removedor de fundo: {loaded} de {total} MB. Este download acontece só uma vez.",
     "bg.working": "Removendo o fundo… {pct}%",
-    "bg.lite": "Este aparelho tem pouca memória, então foi usado um modelo mais leve. Um notebook dá bordas mais limpas.",
+    "bg.lite": "Neste aparelho é usado um modelo mais leve para funcionar sem travar. Para bordas mais limpas em cabelo e pelos, use um notebook ou computador.",
     "bg.compare": "Segure para ver o original",
     "bg.background": "Fundo",
     "bg.none": "Nenhum",
@@ -255,6 +255,22 @@
     "bg.erase": "Apagar",
     "bg.restore": "Restaurar",
     "bg.brush": "Tamanho do pincel",
+    "bg.redo": "Refazer",
+    "bg.sharp": "Bordas mais nítidas (cabelo, pelos)",
+    "bg.sharpNote": "Faz uma passada mais detalhada na sua placa de vídeo. Na primeira vez, baixa cerca de {mb} MB.",
+    "bg.sharpFailed": "As bordas mais nítidas não funcionaram neste aparelho, então o primeiro resultado foi mantido.",
+    "bg.shareSticker": "Compartilhar no WhatsApp",
+    "bg.stickerNote": "Figurinha pronta: 512 × 512, fundo transparente e contorno branco. Salve ou compartilhe direto no WhatsApp pelo celular.",
+    "bg.magicErase": "Toque para remover",
+    "bg.magicRestore": "Toque para manter",
+    "bg.magicHint": "Mais rápido: escolha Toque para remover ou Toque para manter e toque numa sobra de fundo ou numa parte que faltou. Toda a área dessa cor é corrigida de uma vez.",
+    "bg.style": "Estilo",
+    "bg.shadow": "Sombra",
+    "bg.outline": "Contorno",
+    "bg.crop": "Cortar",
+    "bg.cropPhoto": "Foto inteira",
+    "bg.cropSubject": "Ajustar ao objeto",
+    "bg.cropSquare": "Quadrado (lojas online)",
     "ocr.unsure": "Parte deste texto pode estar errada. O reconhecimento lê texto em inglês na posição certa: gire antes as fotos de lado e espere que outros alfabetos saiam embaralhados.",
     "ocr.copyAll": "Copiar todo o texto",
     "ocr.copied": "Copiado",
@@ -2929,6 +2945,45 @@
         "remover fundo de gif animado grátis",
         "trocar fundo de gif",
         "remove gif background"
+      ]
+    },
+    "whatsapp-sticker-maker": {
+      "name": "Criador de figurinhas para WhatsApp",
+      "summary": "Transforme qualquer foto em figurinha: sem fundo, com contorno branco, pronta para o WhatsApp.",
+      "action": "Baixar figurinha",
+      "title": "Criar Figurinhas para WhatsApp Grátis — De Qualquer Foto | Fizzdoc",
+      "description": "Crie uma figurinha de WhatsApp grátis com qualquer foto: o fundo é removido no seu aparelho e você recebe um WebP 512×512 com contorno branco. Sem upload.",
+      "h1": "Crie uma figurinha de WhatsApp com qualquer foto",
+      "lede": "Escolha uma foto de um amigo, do seu pet ou sua. O fundo some, um contorno branco de figurinha é adicionado e você recebe uma figurinha pronta para o WhatsApp: WebP 512 × 512, fundo transparente, menos de 100 KB. A IA roda no seu próprio aparelho.",
+      "steps": [
+        "Escolha uma foto. O fundo é removido e o contorno da figurinha é adicionado.",
+        "Retoque alguma área se precisar, ou desligue o contorno.",
+        "Clique em “Baixar figurinha” ou, no celular, em “Compartilhar no WhatsApp”."
+      ],
+      "faq": [
+        [
+          "Meus arquivos são enviados para algum lugar?",
+          "Não. O Fizzdoc faz todo o trabalho dentro da aba do seu navegador, usando mecanismos de código aberto compilados para WebAssembly e JavaScript. Seu arquivo é lido do seu dispositivo, processado localmente, e o resultado é salvo direto de volta nele. Você pode conferir por conta própria: abra as ferramentas de desenvolvedor do navegador, vá até a aba Rede e rode uma tarefa — nenhuma requisição leva seu arquivo."
+        ],
+        [
+          "Como adiciono a figurinha ao WhatsApp?",
+          "No celular, toque em “Compartilhar no WhatsApp” e envie para qualquer conversa (uma conversa com você mesmo serve). Depois toque na figurinha e escolha “Adicionar aos favoritos”. No computador, baixe o arquivo WebP e envie pelo WhatsApp Web ou Desktop."
+        ],
+        [
+          "Isto é feito pelo WhatsApp?",
+          "Não. O Fizzdoc é uma ferramenta independente e gratuita, sem ligação com o WhatsApp ou a Meta. WhatsApp é marca do seu dono; o nome é usado só para dizer para que servem as figurinhas."
+        ],
+        [
+          "O Fizzdoc é gratuito?",
+          "Sim, e vai continuar sendo grátis: sem cadastro, sem marca d'água, sem limite diário e sem plano premium. O Fizzdoc é open source sob a licença Apache-2.0, então qualquer um pode rodar sua própria cópia."
+        ]
+      ],
+      "keywords": [
+        "criar figurinha whatsapp",
+        "figurinha com minha foto",
+        "foto para figurinha",
+        "fazer figurinhas grátis",
+        "figurinha webp transparente"
       ]
     }
   }

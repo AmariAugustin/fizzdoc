@@ -2,8 +2,9 @@
 // what goes behind (nothing, a colour, their own photo, or a blur), the size, and touches up any
 // spot the model missed. Built for big buttons and few decisions; everything stays on the device.
 import './remove-bg.css';
-import { compose, removeBackground, render, type Backdrop, type SaveFormat } from '../engine/background';
+import { compose, frameFor, removeBackground, render, subjectBox, type Backdrop, type Layout, type Look, type SaveFormat } from '../engine/background';
 import { decodeGif, encodeGif, type GifFrame } from '../engine/gif';
+import { areaBox, regionAt } from '../engine/magic';
 import type { Output } from '../engine/local';
 import { t } from '../i18n';
 
@@ -23,6 +24,13 @@ const SWATCHES: [key: 'white' | 'black' | 'blue' | 'red' | 'green' | 'gray', col
 /** Longest side of the on-screen preview; saving always works from the full-size cut-out. */
 const PREVIEW = 1600;
 const TILE = 64;
+/** Longest side of the copy that "Tap to remove / keep" searches; plenty for picking an area. */
+const MAGIC = 1024;
+/** WhatsApp stickers: 512×512 WebP with a clear background, at most 100 KB. */
+const STICKER = 512;
+const STICKER_BYTES = 100 * 1024;
+/** Download size of the 1024 px model (public/bg/birefnet-lite-1024), shown before it is fetched. */
+const SHARP_MB = 135;
 
 const element = <K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = '') => {
   const node = document.createElement(tag);
@@ -54,6 +62,8 @@ export async function openBackgroundEditor(file: File, viewer: HTMLElement, pres
     }
   }
   const animated = gifFrames.length > 1;
+  // The sticker maker page: square, outlined, clear background, saved as a WhatsApp-ready WebP.
+  const sticker = preset.format === 'sticker' && !animated;
   const W = photo.width;
   const H = photo.height;
 
@@ -87,9 +97,10 @@ export async function openBackgroundEditor(file: File, viewer: HTMLElement, pres
   const backdrops = group(t('bg.background'));
   const choices = element('div', 'bg-choices');
   backdrops.append(choices);
+  const styleBox = group(t('bg.style'));
   const sizeBox = group(t('bg.size'));
   const touch = group(t('bg.touch'));
-  viewer.replaceChildren(stage, compare, note, backdrops, sizeBox, touch);
+  viewer.replaceChildren(stage, compare, note, backdrops, styleBox, sizeBox, touch);
 
   // Before the cut-out is ready, the photo itself is shown under the progress.
   const preview = canvas.getContext('2d')!;
@@ -109,6 +120,7 @@ export async function openBackgroundEditor(file: File, viewer: HTMLElement, pres
   const frames: { photo: ImageBitmap; cut: ImageBitmap; delay: number }[] = [];
   let cutout!: ImageData;
   let model = '';
+  let gpu = false;
   if (animated) {
     for (const [i, frame] of gifFrames.entries()) {
       const framePhoto = await createImageBitmap(frame.image);
@@ -127,7 +139,7 @@ export async function openBackgroundEditor(file: File, viewer: HTMLElement, pres
   } else {
     const started = performance.now();
     let ready = started; // when the one-time download finished
-    ({ cutout, model } = await removeBackground(await createImageBitmap(photo), {
+    ({ cutout, model, gpu } = await removeBackground(await createImageBitmap(photo), {
       fast: !!info,
       onSetup: (loaded, total) => {
         onSetup(loaded, total);
@@ -156,7 +168,24 @@ export async function openBackgroundEditor(file: File, viewer: HTMLElement, pres
   let ownPhoto: ImageBitmap | undefined;
   // Animations play in the preview; `shown` is the frame on screen.
   let shown = 0;
-  const draw = () => (animated ? compose(canvas, frames[shown].cut, frames[shown].photo, backdrop) : compose(canvas, cut, photo, backdrop));
+  // Finishing touches for still pictures: shadow, outline, and which part of the photo is shown.
+  let layout: Layout = 'photo';
+  let shadow = false;
+  let outline: string | undefined;
+  let frame: [number, number, number, number] = [0, 0, W, H];
+  const look = (): Look => ({ frame, shadow, outline });
+  /** Re-measures the subject (after a touch-up or a new crop) and resizes the preview to the frame. */
+  const reframe = () => {
+    frame = frameFor(layout, layout === 'photo' ? undefined : subjectBox(pixels, W, H), W, H);
+    const s = Math.min(1, PREVIEW / Math.max(frame[2], frame[3]));
+    const width = Math.max(1, Math.round(frame[2] * s));
+    const height = Math.max(1, Math.round(frame[3] * s));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+  };
+  const draw = () => (animated ? compose(canvas, frames[shown].cut, frames[shown].photo, backdrop) : compose(canvas, cut, photo, backdrop, look()));
   let timer: ReturnType<typeof setTimeout> | undefined;
   const play = () => {
     draw();
@@ -248,13 +277,60 @@ export async function openBackgroundEditor(file: File, viewer: HTMLElement, pres
   // Pages like "white background" start with that colour picked.
   (colors.get(preset.bg as 'white') ?? none).click();
 
+  // ---- Style: shadow, outline, crop ----
+  const toggle = (label: string, onChange: (on: boolean) => void) => {
+    const button = element('button', 'bg-btn', label);
+    button.type = 'button';
+    button.setAttribute('aria-pressed', 'false');
+    button.onclick = () => {
+      const on = button.getAttribute('aria-pressed') !== 'true';
+      button.setAttribute('aria-pressed', String(on));
+      onChange(on);
+      draw();
+    };
+    return button;
+  };
+  const styleTools = element('div', 'bg-tools');
+  const cropSelect = element('select');
+  cropSelect.setAttribute('aria-label', t('bg.crop'));
+  cropSelect.append(new Option(t('bg.cropPhoto'), 'photo'), new Option(t('bg.cropSubject'), 'subject'), new Option(t('bg.cropSquare'), 'square'));
+  cropSelect.onchange = () => {
+    layout = cropSelect.value as Layout;
+    reframe();
+    fillSizes();
+    draw();
+  };
+  const cropLabel = element('label', 'bg-brush', t('bg.crop'));
+  cropLabel.append(cropSelect);
+  styleTools.append(
+    toggle(t('bg.shadow'), (on) => (shadow = on)),
+    toggle(t('bg.outline'), (on) => (outline = on ? '#ffffff' : undefined)),
+    cropLabel,
+  );
+  styleBox.append(styleTools);
+  styleBox.hidden = animated || !!info; // for still pictures
+  if (sticker) {
+    (styleTools.children[1] as HTMLButtonElement).click(); // outline on
+    cropSelect.value = 'square';
+    layout = 'square';
+    reframe();
+  }
+
   // ---- Size ----
   const sizeSelect = element('select');
   sizeSelect.setAttribute('aria-label', t('bg.size'));
-  const widths = [2000, 1080, 600].filter((w) => w < W);
-  sizeSelect.append(new Option(t('bg.original', { w: W, h: H }), String(W)));
-  for (const w of widths) sizeSelect.append(new Option(t('bg.widthOption', { w, h: Math.round((H * w) / W) }), String(w)));
-  sizeSelect.append(new Option(t('bg.customSize'), 'custom'));
+  // Sizes follow the shown part of the photo (the whole photo, or the crop).
+  const fillSizes = () => {
+    const [, , fw, fh] = frame;
+    const kept = sizeSelect.value === 'custom' ? 'custom' : '';
+    sizeSelect.replaceChildren(new Option(t('bg.original', { w: fw, h: fh }), String(fw)));
+    for (const w of [2000, 1080, 600].filter((w) => w < fw)) sizeSelect.append(new Option(t('bg.widthOption', { w, h: Math.round((fh * w) / fw) }), String(w)));
+    sizeSelect.append(new Option(t('bg.customSize'), 'custom'));
+    sizeSelect.value = kept || String(fw);
+    widthInput.max = String(Math.max(fw * 4, 8000));
+    if (!kept) widthInput.value = String(fw);
+    updateSize();
+  };
   const widthInput = element('input');
   widthInput.type = 'number';
   widthInput.min = '16';
@@ -266,22 +342,52 @@ export async function openBackgroundEditor(file: File, viewer: HTMLElement, pres
   const updateSize = () => {
     widthInput.hidden = sizeSelect.value !== 'custom';
     const w = outputWidth();
-    sizeNote.textContent = widthInput.hidden ? '' : `× ${Math.round((H * w) / W)} px`;
+    sizeNote.textContent = widthInput.hidden ? '' : `× ${Math.round((frame[3] * w) / frame[2])} px`;
   };
   sizeSelect.onchange = updateSize;
   widthInput.oninput = updateSize;
   sizeBox.append(sizeSelect, widthInput, sizeNote);
-  const outputWidth = () => {
+  function outputWidth() {
     const w = sizeSelect.value === 'custom' ? Math.round(Number(widthInput.value)) : Number(sizeSelect.value);
-    return Number.isFinite(w) && w >= 16 ? Math.min(w, Number(widthInput.max)) : W;
+    return Number.isFinite(w) && w >= 16 ? Math.min(w, Number(widthInput.max)) : frame[2];
+  }
+  fillSizes();
+
+  sizeBox.hidden = sticker; // stickers are always 512×512
+  /** The sticker as a WebP file: 512×512, the quality lowered step by step until it fits 100 KB. */
+  const makeSticker = async () => {
+    for (const quality of [0.92, 0.8, 0.7, 0.6, 0.5, 0.4]) {
+      const canvas = new OffscreenCanvas(STICKER, STICKER);
+      compose(canvas, cut, photo, backdrop, look());
+      const blob = await canvas.convertToBlob({ type: 'image/webp', quality });
+      if (blob.size <= STICKER_BYTES || quality === 0.4) return new File([blob], `${file.name.replace(/\.[^.]+$/, '')}-sticker.webp`, { type: 'image/webp' });
+    }
+    throw new Error('unreachable');
   };
+  if (sticker) {
+    note.textContent = t('bg.stickerNote');
+    const probe = new File([new Uint8Array(1)], 'sticker.webp', { type: 'image/webp' });
+    if (navigator.canShare?.({ files: [probe] })) {
+      const share = element('button', 'bg-btn bg-share', t('bg.shareSticker'));
+      share.type = 'button';
+      share.onclick = async () => {
+        try {
+          await navigator.share({ files: [await makeSticker()] });
+        } catch {
+          // closed the share sheet: nothing to do
+        }
+      };
+      styleBox.append(share);
+    }
+  }
 
   // ---- Touch up ----
-  touch.append(element('p', 'bg-hint', t('bg.touchHint')));
+  touch.append(element('p', 'bg-hint', t('bg.touchHint')), element('p', 'bg-hint', t('bg.magicHint')));
   const tools = element('div', 'bg-tools');
   const modes: HTMLButtonElement[] = [];
-  let mode: 'erase' | 'restore' | null = null;
-  const modeButton = (key: 'erase' | 'restore') => {
+  type Mode = 'erase' | 'restore' | 'magicErase' | 'magicRestore';
+  let mode: Mode | null = null;
+  const modeButton = (key: Mode) => {
     const button = element('button', 'bg-btn', t(`bg.${key}`));
     button.type = 'button';
     button.setAttribute('aria-pressed', 'false');
@@ -306,13 +412,35 @@ export async function openBackgroundEditor(file: File, viewer: HTMLElement, pres
   const undo = element('button', 'bg-btn', t('ed.undo'));
   undo.type = 'button';
   undo.disabled = true;
-  tools.append(modeButton('erase'), modeButton('restore'), brushLabel, undo);
+  const redo = element('button', 'bg-btn', t('bg.redo'));
+  redo.type = 'button';
+  redo.disabled = true;
+  // Zoom, for careful work on small details (most useful on phones).
+  let zoom = 1;
+  let baseWidth = 0;
+  const zoomBy = (step: number) => {
+    if (zoom === 1) baseWidth = canvas.getBoundingClientRect().width;
+    zoom = Math.min(4, Math.max(1, zoom + step));
+    stage.classList.toggle('zoomed', zoom > 1);
+    canvas.style.width = zoom > 1 ? `${Math.round(baseWidth * zoom)}px` : '';
+    zoomOut.disabled = zoom === 1;
+    zoomIn.disabled = zoom === 4;
+  };
+  const zoomIn = element('button', 'bg-btn', t('ed.zoomIn'));
+  zoomIn.type = 'button';
+  zoomIn.onclick = () => zoomBy(1);
+  const zoomOut = element('button', 'bg-btn', t('ed.zoomOut'));
+  zoomOut.type = 'button';
+  zoomOut.disabled = true;
+  zoomOut.onclick = () => zoomBy(-1);
+  tools.append(modeButton('magicErase'), modeButton('magicRestore'), modeButton('erase'), modeButton('restore'), brushLabel, undo, redo, zoomOut, zoomIn);
   touch.append(tools);
   touch.hidden = animated || !!info; // touch-ups are for still pictures
 
   // Each stroke remembers the 64×64 tiles it changed, so Undo restores just those.
   type Snapshot = Map<number, ImageData>;
   const history: Snapshot[] = [];
+  const future: Snapshot[] = [];
   let stroke: Snapshot | undefined;
   const tilesX = Math.ceil(W / TILE);
   const remember = (x0: number, y0: number, x1: number, y1: number) => {
@@ -336,12 +464,104 @@ export async function openBackgroundEditor(file: File, viewer: HTMLElement, pres
     for (let row = 0; row < tile.height; row++) pixels.set(tile.data.subarray(row * tile.width * 4, (row + 1) * tile.width * 4), ((ty * TILE + row) * W + tx * TILE) * 4);
     cutContext.putImageData(tile, tx * TILE, ty * TILE);
   };
-  undo.onclick = () => {
-    const last = history.pop();
+  /** The tiles as they are now, for the same keys as `snapshot`. */
+  const current = (snapshot: Snapshot): Snapshot => {
+    const now: Snapshot = new Map();
+    for (const [key, tile] of snapshot) {
+      const tx = key % tilesX;
+      const ty = Math.floor(key / tilesX);
+      now.set(key, cutContext.getImageData(tx * TILE, ty * TILE, tile.width, tile.height));
+    }
+    return now;
+  };
+  const step = (from: Snapshot[], to: Snapshot[]) => {
+    const last = from.pop();
     if (!last) return;
+    to.push(current(last));
     for (const [key, tile] of last) putTile(key, tile);
     undo.disabled = !history.length;
+    redo.disabled = !future.length;
+    if (layout !== 'photo') reframe();
     draw();
+  };
+  undo.onclick = () => step(history, future);
+  redo.onclick = () => step(future, history);
+
+  const loadOriginal = () => {
+    if (original) return;
+    const reader = new OffscreenCanvas(W, H).getContext('2d', { willReadFrequently: true })!;
+    reader.drawImage(photo, 0, 0);
+    original = reader.getImageData(0, 0, W, H).data;
+  };
+  /** Ends a change: it can be undone, the crop follows the subject, and the preview updates. */
+  const finish = () => {
+    if (stroke?.size) {
+      history.push(stroke);
+      future.length = 0;
+    }
+    if (history.length > 30) history.shift();
+    stroke = undefined;
+    undo.disabled = !history.length;
+    redo.disabled = !future.length;
+    if (layout !== 'photo') reframe();
+    draw();
+  };
+
+  // ---- Tap to remove / Tap to keep ----
+  let small: Uint8ClampedArray | undefined; // the photo at MAGIC size
+  const ms = Math.min(1, MAGIC / Math.max(W, H));
+  const mw = Math.max(1, Math.round(W * ms));
+  const mh = Math.max(1, Math.round(H * ms));
+  const magicTap = (x: number, y: number, keep: boolean) => {
+    if (!small) {
+      const reader = new OffscreenCanvas(mw, mh).getContext('2d', { willReadFrequently: true })!;
+      reader.drawImage(photo, 0, 0, mw, mh);
+      small = reader.getImageData(0, 0, mw, mh).data;
+    }
+    const shown = new OffscreenCanvas(mw, mh).getContext('2d', { willReadFrequently: true })!;
+    shown.drawImage(cut, 0, 0, mw, mh);
+    const alpha = shown.getImageData(0, 0, mw, mh).data;
+    // Remove works on what is still visible; Keep on what is (partly) gone.
+    const area = regionAt(small, mw, mh, x * ms, y * ms, 40, keep ? (i) => alpha[i * 4 + 3] < 250 : (i) => alpha[i * 4 + 3] > 8);
+    const box = areaBox(area, mw, mh);
+    if (!box) return;
+    const x0 = Math.max(0, Math.floor((box[0] - 1) / ms));
+    const y0 = Math.max(0, Math.floor((box[1] - 1) / ms));
+    const x1 = Math.min(W - 1, Math.ceil((box[0] + box[2] + 1) / ms));
+    const y1 = Math.min(H - 1, Math.ceil((box[1] + box[3] + 1) / ms));
+    stroke = new Map();
+    remember(x0, y0, x1, y1);
+    if (keep) loadOriginal();
+    // The small area, blended in at full size with soft (bilinear) edges.
+    const at = (sx: number, sy: number) => {
+      const cx = Math.min(mw - 1, Math.max(0, sx));
+      const cy = Math.min(mh - 1, Math.max(0, sy));
+      const ix = Math.min(mw - 2, Math.floor(cx));
+      const iy = Math.min(mh - 2, Math.floor(cy));
+      if (ix < 0 || iy < 0) return area[Math.round(cy) * mw + Math.round(cx)];
+      const fx = cx - ix;
+      const fy = cy - iy;
+      const i = iy * mw + ix;
+      return (area[i] * (1 - fx) + area[i + 1] * fx) * (1 - fy) + (area[i + mw] * (1 - fx) + area[i + mw + 1] * fx) * fy;
+    };
+    for (let y = y0; y <= y1; y++)
+      for (let x = x0; x <= x1; x++) {
+        const m = at((x + 0.5) * ms - 0.5, (y + 0.5) * ms - 0.5);
+        if (m <= 0) continue;
+        const o = (y * W + x) * 4;
+        if (!keep) pixels[o + 3] = Math.round(pixels[o + 3] * (1 - m));
+        else {
+          const a = Math.round(255 * m);
+          if (a > pixels[o + 3]) {
+            pixels[o] = original![o];
+            pixels[o + 1] = original![o + 1];
+            pixels[o + 2] = original![o + 2];
+            pixels[o + 3] = a;
+          }
+        }
+      }
+    cutContext.putImageData(cutout, 0, 0, x0, y0, x1 - x0 + 1, y1 - y0 + 1);
+    finish();
   };
 
   /** One round dab of the brush at full-size coordinates, soft at its rim. */
@@ -352,11 +572,7 @@ export async function openBackgroundEditor(file: File, viewer: HTMLElement, pres
     const y1 = Math.min(H - 1, Math.ceil(cy + radius));
     if (x1 < x0 || y1 < y0) return;
     remember(x0, y0, x1, y1);
-    if (mode === 'restore' && !original) {
-      const reader = new OffscreenCanvas(W, H).getContext('2d', { willReadFrequently: true })!;
-      reader.drawImage(photo, 0, 0);
-      original = reader.getImageData(0, 0, W, H).data;
-    }
+    if (mode === 'restore') loadOriginal();
     for (let y = y0; y <= y1; y++)
       for (let x = x0; x <= x1; x++) {
         const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy) / radius;
@@ -379,15 +595,25 @@ export async function openBackgroundEditor(file: File, viewer: HTMLElement, pres
   canvas.addEventListener('pointerdown', (event) => {
     if (!mode || event.button !== 0) return;
     event.preventDefault();
+    const toPhoto = (e: PointerEvent) => {
+      const box = canvas.getBoundingClientRect();
+      const [fx, fy, fw, fh] = frame;
+      return [fx + ((e.clientX - box.left) / box.width) * fw, fy + ((e.clientY - box.top) / box.height) * fh];
+    };
+    if (mode === 'magicErase' || mode === 'magicRestore') {
+      const [x, y] = toPhoto(event);
+      if (x >= 0 && y >= 0 && x < W && y < H) magicTap(x, y, mode === 'magicRestore');
+      return;
+    }
     canvas.setPointerCapture(event.pointerId);
     stroke = new Map();
     let last: [number, number] | undefined;
     const paint = (e: PointerEvent) => {
       const box = canvas.getBoundingClientRect();
-      const x = ((e.clientX - box.left) / box.width) * W;
-      const y = ((e.clientY - box.top) / box.height) * H;
+      const [, , fw] = frame;
+      const [x, y] = toPhoto(e);
       // The brush size is set in screen pixels, so it feels the same at any zoom.
-      const radius = (Number(brush.value) / 2) * (W / box.width);
+      const radius = (Number(brush.value) / 2) * (fw / box.width);
       // Fill the gap between pointer events so fast strokes stay continuous.
       const steps = last ? Math.max(1, Math.ceil(Math.hypot(x - last[0], y - last[1]) / (radius / 3))) : 1;
       for (let i = 1; i <= steps; i++) dab(last ? last[0] + ((x - last[0]) * i) / steps : x, last ? last[1] + ((y - last[1]) * i) / steps : y, radius);
@@ -397,22 +623,57 @@ export async function openBackgroundEditor(file: File, viewer: HTMLElement, pres
     paint(event);
     const end = () => {
       canvas.removeEventListener('pointermove', paint);
-      if (stroke?.size) history.push(stroke);
-      if (history.length > 30) history.shift();
-      stroke = undefined;
-      undo.disabled = !history.length;
+      finish();
     };
     canvas.addEventListener('pointermove', paint);
     canvas.addEventListener('pointerup', end, { once: true });
     canvas.addEventListener('pointercancel', end, { once: true });
   });
 
+  // ---- Sharper edges: the 1024 px model, offered when the photo was done on a graphics chip ----
+  if (!animated && !info && gpu && model === 'birefnet-lite') {
+    const sharp = element('button', 'bg-btn', t('bg.sharp'));
+    sharp.type = 'button';
+    sharp.setAttribute('aria-pressed', 'false');
+    const sharpNote = element('p', 'bg-hint', t('bg.sharpNote', { mb: SHARP_MB }));
+    sharp.onclick = async () => {
+      sharp.disabled = true;
+      busy.hidden = false;
+      busyText.textContent = t('bg.working', { pct: setBar(0) });
+      try {
+        const result = await removeBackground(await createImageBitmap(photo), {
+          sharp: true,
+          onSetup,
+          onProgress: (fraction) => {
+            busyText.textContent = t('bg.working', { pct: setBar(fraction) });
+          },
+        });
+        // The new cut-out replaces the old one; earlier touch-ups belonged to the old one.
+        pixels.set(result.cutout.data);
+        cutContext.putImageData(cutout, 0, 0);
+        history.length = 0;
+        future.length = 0;
+        undo.disabled = redo.disabled = true;
+        sharp.setAttribute('aria-pressed', 'true');
+        if (layout !== 'photo') reframe();
+        draw();
+      } catch {
+        note.textContent = t('bg.sharpFailed');
+        sharp.disabled = false;
+      }
+      busy.hidden = true;
+    };
+    touch.prepend(touch.querySelector('legend')!, sharp, sharpNote);
+  }
+
   // ---- Before and after ----
   compare.disabled = false;
   const showOriginal = (on: boolean) => {
     if (on) {
       preview.clearRect(0, 0, canvas.width, canvas.height);
-      preview.drawImage(animated ? frames[shown].photo : photo, 0, 0, canvas.width, canvas.height);
+      const [fx, fy, fw] = animated ? [0, 0, W] : frame;
+      const s = canvas.width / fw;
+      preview.drawImage(animated ? frames[shown].photo : photo, -fx * s, -fy * s, W * s, H * s);
     } else draw();
     compare.classList.toggle('active', on);
   };
@@ -452,10 +713,15 @@ export async function openBackgroundEditor(file: File, viewer: HTMLElement, pres
           summary: `${w} × ${h} px`,
         };
       }
+      if (sticker) {
+        const made = await makeSticker();
+        onProgress?.(1);
+        return { blob: made, name: made.name, summary: `${STICKER} × ${STICKER} px · ${Math.ceil(made.size / 1024)} KB` };
+      }
       const chosen = (['png', 'jpg', 'webp'] as SaveFormat[]).find((f) => f === options.format) ?? (backdrop.kind === 'none' ? 'png' : 'jpg');
       const w = outputWidth();
-      const h = Math.max(1, Math.round((H * w) / W));
-      const blob = await render(cut, photo, backdrop, w, h, chosen);
+      const h = Math.max(1, Math.round((frame[3] * w) / frame[2]));
+      const blob = await render(cut, photo, backdrop, w, h, chosen, look());
       onProgress?.(1);
       return {
         blob,

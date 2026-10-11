@@ -1,10 +1,11 @@
 import { readFileSync } from 'node:fs';
-import { expect, test, type Page } from '@playwright/test';
+import { fileURLToPath } from 'node:url';
+import { devices, expect, test, type Page } from '@playwright/test';
 import { PDFDocument, PDFName } from 'pdf-lib';
 import { PAGES, SITE_LANGS } from '../src/seo';
 import { SITE, TOOLS } from '../src/site';
 
-const file = (name: string) => new URL(`./fixtures/${name}`, import.meta.url).pathname;
+const file = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
 const fixture = (name: string) => file(`${name}.pdf`);
 
 /** Records every request and console CSP violation, so tests can prove nothing leaves the page. */
@@ -1074,7 +1075,7 @@ test('removes a picture’s background on the device, keeps its full size, and p
         const c = new OffscreenCanvas(bitmap.width, bitmap.height).getContext('2d')!;
         c.drawImage(bitmap, 0, 0);
         const at = (fx: number, fy: number) => [...c.getImageData(Math.floor(bitmap.width * fx), Math.floor(bitmap.height * fy), 1, 1).data];
-        return { width: bitmap.width, height: bitmap.height, corner: at(0.02, 0.02), centre: at(0.5, 0.5) };
+        return { width: bitmap.width, height: bitmap.height, corner: at(0.02, 0.02), centre: at(0.5, 0.5), below: at(0.5, 0.95) };
       },
       [[...bytes], type],
     );
@@ -1118,9 +1119,120 @@ test('removes a picture’s background on the device, keeps its full size, and p
   await page.getByRole('button', { name: 'Download image' }).click();
   await expect(page.locator('#status')).toContainText('900 × 600 px');
   expect((await sample((await downloadBytes(page)).bytes, 'image/png')).centre[3]).toBe(255);
+  // Redo brings the erased spot back, and Undo takes it away again.
+  await page.getByRole('button', { name: 'Redo' }).click();
+  await page.getByRole('button', { name: 'Download image' }).click();
+  await expect(page.locator('#status')).toContainText('900 × 600 px');
+  expect((await sample((await downloadBytes(page)).bytes, 'image/png')).centre[3]).toBeLessThan(20);
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('button', { name: 'Erase' }).click();
+
+  // Tap to remove: one tap on the ball takes the whole red area away; Undo brings it back.
+  await page.getByRole('button', { name: 'Tap to remove' }).click();
+  const shown = (await page.locator('.bg-canvas').boundingBox())!;
+  await page.mouse.click(shown.x + shown.width / 2, shown.y + shown.height / 2);
+  await page.getByRole('button', { name: 'Download image' }).click();
+  await expect(page.locator('#status')).toContainText('900 × 600 px');
+  const tapped = await sample((await downloadBytes(page)).bytes, 'image/png');
+  expect(tapped.centre[3]).toBeLessThan(20);
+  expect(tapped.below[3]).toBeLessThan(20);
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('button', { name: 'Tap to remove' }).click();
+
+  // Square crop for online shops: a white square around the subject, the subject in the middle.
+  await page.getByRole('button', { name: 'White' }).click();
+  await page.getByRole('combobox', { name: 'Crop' }).selectOption('square');
+  await page.getByRole('button', { name: 'Download image' }).click();
+  await expect(page.locator('#status')).toContainText('Done');
+  const square = await sample((await downloadBytes(page)).bytes, 'image/jpeg');
+  expect(square.width).toBe(square.height);
+  expect(square.width).toBeGreaterThan(360);
+  expect(square.width).toBeLessThan(460);
+  expect(square.centre[0]).toBeGreaterThan(150);
+  expect(square.below.slice(0, 3).every((v) => v > 245)).toBe(true);
+
+  // Shadow: the white just under the subject turns grey.
+  await page.getByRole('button', { name: 'Shadow' }).click();
+  await page.getByRole('button', { name: 'Download image' }).click();
+  await expect(page.locator('#status')).toContainText('Done');
+  expect((await sample((await downloadBytes(page)).bytes, 'image/jpeg')).below[0]).toBeLessThan(240);
 
   expect(seen.violations).toEqual([]);
   expect(seen.requests.filter((r) => !r.url.startsWith(page.url().split('/').slice(0, 3).join('/')) && !r.url.startsWith('blob:') && !r.url.startsWith('data:'))).toEqual([]);
+});
+
+test('makes a WhatsApp sticker: 512×512 WebP, clear background, outline, under 100 KB', async ({ page }) => {
+  test.setTimeout(240_000);
+  const seen = watch(page);
+  await page.goto('/whatsapp-sticker-maker/');
+  const photo = await page.evaluate(async () => {
+    const canvas = new OffscreenCanvas(900, 600);
+    const c = canvas.getContext('2d')!;
+    c.fillStyle = '#e8eef5';
+    c.fillRect(0, 0, 900, 600);
+    c.fillStyle = '#c0392b';
+    c.beginPath();
+    c.arc(450, 300, 170, 0, Math.PI * 2);
+    c.fill();
+    return [...new Uint8Array(await (await canvas.convertToBlob({ type: 'image/png' })).arrayBuffer())];
+  });
+  await page.locator('#file-input').setInputFiles({ name: 'ball.png', mimeType: 'image/png', buffer: Buffer.from(photo) });
+  await expect(page.getByRole('button', { name: 'Outline' })).toHaveAttribute('aria-pressed', 'true', { timeout: 200_000 });
+  await expect(page.getByRole('combobox', { name: 'Size' })).toBeHidden();
+  await page.getByRole('button', { name: 'Download sticker' }).click();
+  await expect(page.locator('#status')).toContainText('512 × 512 px');
+  const sticker = await downloadBytes(page);
+  expect(sticker.name).toBe('ball-sticker.webp');
+  expect(sticker.bytes.length).toBeLessThanOrEqual(100 * 1024);
+  const look = await page.evaluate(async (data) => {
+    const bitmap = await createImageBitmap(new Blob([new Uint8Array(data)], { type: 'image/webp' }));
+    const c = new OffscreenCanvas(bitmap.width, bitmap.height).getContext('2d')!;
+    c.drawImage(bitmap, 0, 0);
+    const at = (x: number, y: number) => [...c.getImageData(x, y, 1, 1).data];
+    // The white outline sits just outside the ball's left edge, half way down.
+    let outline = false;
+    for (let x = 0; x < bitmap.width / 2; x++) {
+      const [r, g, b, a] = at(x, bitmap.height / 2);
+      if (a > 200 && r > 230 && g > 230 && b > 230) outline = true;
+    }
+    return { size: [bitmap.width, bitmap.height], corner: at(2, 2)[3], centre: at(256, 256), outline };
+  }, [...sticker.bytes]);
+  expect(look.size).toEqual([512, 512]);
+  expect(look.corner).toBeLessThan(20);
+  expect(look.centre[3]).toBe(255);
+  expect(look.outline).toBe(true);
+  expect(seen.violations).toEqual([]);
+});
+
+test('phones use the small background model, so the big one never loads and the tab stays alive', async ({ browser, baseURL }) => {
+  test.setTimeout(240_000);
+  for (const phone of [true, false]) {
+    // A phone, and a laptop where the big model crashed the tab once before.
+    const context = await browser.newContext(phone ? { ...devices['Pixel 7'], baseURL } : { baseURL });
+    if (!phone) await context.addInitScript(() => localStorage.setItem('fizzdoc-bg-crashed', String(Date.now())));
+    const page = await context.newPage();
+    const fetched: string[] = [];
+    page.on('request', (request) => fetched.push(new URL(request.url()).pathname));
+    await page.goto('/remove-background/');
+    const photo = await page.evaluate(async () => {
+      const canvas = new OffscreenCanvas(600, 400);
+      const c = canvas.getContext('2d')!;
+      c.fillStyle = '#e8eef5';
+      c.fillRect(0, 0, 600, 400);
+      c.fillStyle = '#c0392b';
+      c.beginPath();
+      c.arc(300, 200, 110, 0, Math.PI * 2);
+      c.fill();
+      return [...new Uint8Array(await (await canvas.convertToBlob({ type: 'image/png' })).arrayBuffer())];
+    });
+    await page.locator('#file-input').setInputFiles({ name: 'ball.png', mimeType: 'image/png', buffer: Buffer.from(photo) });
+    await expect(page.locator('.bg-note')).toContainText('lighter model', { timeout: 200_000 });
+    expect(fetched.some((path) => path.startsWith('/bg/u2netp/'))).toBe(true);
+    expect(fetched.filter((path) => path.startsWith('/bg/birefnet') || path.startsWith('/bg/ort/'))).toEqual([]);
+    await page.getByRole('button', { name: 'Download image' }).click();
+    await expect(page.locator('#status')).toContainText('600 × 400 px');
+    await context.close();
+  }
 });
 
 test('shares Fizzdoc: the phone’s share sheet, or links to the big networks and a copy button', async ({ browser }) => {
