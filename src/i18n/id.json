@@ -64,6 +64,8 @@
     "ws.choosePdf": "Pilih file PDF",
     "ws.choosePdfs": "Pilih file-file PDF",
     "ws.chooseImage": "Pilih gambar",
+    "ws.before": "Sebelum",
+    "ws.after": "Sesudah",
     "ws.chooseImages": "Pilih gambar-gambar",
     "ws.chooseFile": "Pilih file {ext}",
     "ws.chooseFiles": "Pilih file-file {ext}",

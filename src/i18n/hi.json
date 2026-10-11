@@ -64,6 +64,8 @@
     "ws.choosePdf": "एक PDF फ़ाइल चुनें",
     "ws.choosePdfs": "PDF फ़ाइलें चुनें",
     "ws.chooseImage": "एक इमेज चुनें",
+    "ws.before": "पहले",
+    "ws.after": "बाद में",
     "ws.chooseImages": "इमेज चुनें",
     "ws.chooseFile": "एक {ext} फ़ाइल चुनें",
     "ws.chooseFiles": "{ext} फ़ाइलें चुनें",

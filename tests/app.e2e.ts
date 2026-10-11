@@ -298,6 +298,71 @@ test('compresses a photo under a form’s size limit while keeping it as large a
   await expect(page.locator('#status')).toContainText('too small for this image');
 });
 
+test('compares the original and the compressed photo with a slider, only for a single image', async ({ page }) => {
+  await page.goto('/compress-image/');
+  await page.locator('#file-input').setInputFiles(file('big-photo.jpg'));
+  await page.getByRole('button', { name: 'Compress images' }).click();
+  const compare = page.locator('.compare');
+  await expect(compare).toBeVisible();
+  // Both pictures have loaded: the original underneath, the result on top.
+  for (const image of ['.compare-before', '.compare-after'])
+    expect(await compare.locator(image).evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBeGreaterThan(0);
+  const slider = page.getByRole('slider', { name: 'Before / After' });
+  await expect(slider).toHaveValue('50');
+  await slider.focus();
+  await page.keyboard.press('End');
+  await expect(compare).toHaveAttribute('style', /--pos: 100%/);
+  // A click moves the line there, and dragging carries it along.
+  const position = Number(await slider.inputValue());
+  const near = async (expected: number) => expect.poll(async () => Math.abs(Number(await slider.inputValue()) - expected)).toBeLessThanOrEqual(2);
+  const { width, height } = (await compare.boundingBox())!;
+  await compare.click({ position: { x: width * 0.1, y: height / 2 } }); // waits until the picture stops moving
+  await near(10);
+  expect(position).toBe(100);
+  await page.mouse.down();
+  const box = (await compare.boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.8, box.y + box.height / 2, { steps: 5 });
+  await page.mouse.up();
+  await near(80);
+  await expect(compare).toHaveAttribute('style', new RegExp(`--pos: ${await slider.inputValue()}%`));
+  await expect(page.locator('#download')).toBeVisible();
+
+  // Several images make a ZIP, so there is nothing single to compare.
+  await page.locator('#file-input').setInputFiles([file('photo.jpg'), file('big-photo.jpg')]);
+  await page.getByRole('button', { name: 'Compress images' }).click();
+  await expect(page.locator('#status')).toContainText(/\d images/);
+  await expect(compare).toHaveCount(0);
+});
+
+test('on a phone, a sideways swipe moves the comparison line and an upward swipe scrolls the page', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const page = await context.newPage();
+  await page.goto('/compress-image/');
+  await page.locator('#file-input').setInputFiles(file('big-photo.jpg'));
+  await page.getByRole('button', { name: 'Compress images' }).click();
+  const compare = page.locator('.compare');
+  await expect(compare.locator('.compare-after')).toBeVisible();
+  await compare.scrollIntoViewIfNeeded();
+  const cdp = await context.newCDPSession(page);
+  const swipe = async (from: { x: number; y: number }, to: { x: number; y: number }) => {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [from] });
+    for (let i = 1; i <= 8; i++)
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from.x + ((to.x - from.x) * i) / 8, y: from.y + ((to.y - from.y) * i) / 8 }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  };
+  const box = (await compare.boundingBox())!;
+  const middle = box.y + box.height / 2;
+  const value = async () => Number(await page.locator('.compare-range').inputValue());
+  await swipe({ x: box.x + box.width * 0.5, y: middle }, { x: box.x + box.width * 0.85, y: middle });
+  await expect.poll(async () => Math.abs((await value()) - 85)).toBeLessThanOrEqual(2);
+  const moved = await value();
+  const before = await page.evaluate(() => scrollY);
+  await swipe({ x: box.x + box.width * 0.3, y: middle + 40 }, { x: box.x + box.width * 0.3, y: middle - 160 });
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(before + 100);
+  expect(await value()).toBe(moved);
+  await context.close();
+});
+
 test('converts PDFs to text, Markdown, Word and PowerPoint', async ({ page }) => {
   const seen = watch(page);
   for (const [slug, button, name] of [

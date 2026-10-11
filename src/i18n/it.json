@@ -64,6 +64,8 @@
     "ws.choosePdf": "Scegli un file PDF",
     "ws.choosePdfs": "Scegli i file PDF",
     "ws.chooseImage": "Scegli un'immagine",
+    "ws.before": "Prima",
+    "ws.after": "Dopo",
     "ws.chooseImages": "Scegli le immagini",
     "ws.chooseFile": "Scegli un file {ext}",
     "ws.chooseFiles": "Scegli i file {ext}",

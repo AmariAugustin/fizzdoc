@@ -97,6 +97,8 @@ export const UI = {
   'ws.choosePdf': 'Choose a PDF file',
   'ws.choosePdfs': 'Choose PDF files',
   'ws.chooseImage': 'Choose an image',
+  'ws.before': 'Before',
+  'ws.after': 'After',
   'ws.chooseImages': 'Choose images',
   'ws.chooseFile': 'Choose a {ext} file',
   'ws.chooseFiles': 'Choose {ext} files',

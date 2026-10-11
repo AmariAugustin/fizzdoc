@@ -64,6 +64,8 @@
     "ws.choosePdf": "Kies een PDF-bestand",
     "ws.choosePdfs": "Kies PDF-bestanden",
     "ws.chooseImage": "Kies een afbeelding",
+    "ws.before": "Voor",
+    "ws.after": "Na",
     "ws.chooseImages": "Kies afbeeldingen",
     "ws.chooseFile": "Kies een {ext}-bestand",
     "ws.chooseFiles": "Kies {ext}-bestanden",

@@ -64,6 +64,8 @@
     "ws.choosePdf": "PDF-Datei auswählen",
     "ws.choosePdfs": "PDF-Dateien auswählen",
     "ws.chooseImage": "Bild auswählen",
+    "ws.before": "Vorher",
+    "ws.after": "Nachher",
     "ws.chooseImages": "Bilder auswählen",
     "ws.chooseFile": "{ext}-Datei auswählen",
     "ws.chooseFiles": "{ext}-Dateien auswählen",
