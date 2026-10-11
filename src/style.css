@@ -1088,6 +1088,7 @@ dialog input {
   border: 1px solid var(--line);
   border-radius: 10px;
   background: repeating-conic-gradient(#e4e4e7 0 25%, #ffffff 0 50%) 50% / 16px 16px;
+  cursor: ew-resize;
   touch-action: pan-y;
 }
 .compare > * {
@@ -1161,7 +1162,7 @@ dialog input {
   height: 100%;
   margin: 0;
   opacity: 0;
-  cursor: ew-resize;
+  pointer-events: none;
 }
 .options input:focus,
 .options select:focus,

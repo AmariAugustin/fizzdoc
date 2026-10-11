@@ -502,7 +502,29 @@ function setUp(op: ToolOp) {
     const label = (text: string, className: string) => Object.assign(document.createElement('span'), { textContent: text, className });
     const slider = Object.assign(document.createElement('input'), { type: 'range', min: '0', max: '100', value: '50', className: 'compare-range' });
     slider.setAttribute('aria-label', `${t('ws.before')} / ${t('ws.after')}`);
-    slider.addEventListener('input', () => view.style.setProperty('--pos', `${slider.value}%`));
+    const update = () => view.style.setProperty('--pos', `${slider.value}%`);
+    slider.addEventListener('input', update);
+    // Mouse and touch move the line to the pointer; the range input stays for the keyboard and screen readers.
+    const follow = (event: PointerEvent) => {
+      const box = view.getBoundingClientRect();
+      slider.value = String(Math.round(Math.min(1, Math.max(0, (event.clientX - box.left) / box.width)) * 100));
+      update();
+    };
+    let start: { x: number; y: number } | undefined;
+    view.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      slider.focus({ preventScroll: true });
+      view.setPointerCapture(event.pointerId);
+      // A finger only moves the line once it slides sideways, so scrolling past the picture leaves it alone.
+      start = event.pointerType === 'touch' ? { x: event.clientX, y: event.clientY } : undefined;
+      if (!start) follow(event);
+    });
+    view.addEventListener('pointermove', (event) => {
+      if (!view.hasPointerCapture(event.pointerId)) return;
+      if (start && Math.abs(event.clientX - start.x) <= Math.abs(event.clientY - start.y) + 4) return;
+      start = undefined;
+      follow(event);
+    });
     view.append(image(before, 'compare-before'), image(after, 'compare-after'), label(t('ws.before'), 'compare-label'), label(t('ws.after'), 'compare-label compare-label-after'), slider);
     return view;
   }
