@@ -148,6 +148,9 @@ describe('fizzdoc MCP server', () => {
     expect(missing.text).toContain('File not found');
     const notPdf = await call('rotate_pdf', { file: at('tone.mp3'), angle: 180 });
     expect(notPdf.isError).toBe(true);
+    const infoNotPdf = await call('pdf_info', { file: at('tone.mp3') });
+    expect(infoNotPdf.isError).toBe(true);
+    expect(infoNotPdf.text).toContain('This is not a PDF file.');
     expect(range.saved).toEqual([]);
   });
 

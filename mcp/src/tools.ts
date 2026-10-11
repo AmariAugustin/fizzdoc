@@ -109,14 +109,17 @@ async function onePdf(file: string, job: Job, suffix: string, output?: string, p
 
 export async function pdfInfo(file: string) {
   const path = await input(file);
+  const bytes = await readFile(path);
+  // PDF readers accept the %PDF- header anywhere in the first 1 KB.
+  if (!new TextDecoder('latin1').decode(bytes.subarray(0, 1024)).includes('%PDF-')) throw new ToolError('This is not a PDF file.');
   const q = await engine();
-  q.FS.writeFile('/in.pdf', await readFile(path));
+  q.FS.writeFile('/in.pdf', bytes);
   const count = await countPages(q, '/in.pdf');
   return {
     file: path,
     bytes: (await stat(path)).size,
     pages: count,
-    note: count === null ? 'The page count needs the password (or the file is not a valid PDF).' : undefined,
+    note: count === null ? 'The page count needs the password (or the file is damaged).' : undefined,
   };
 }
 
