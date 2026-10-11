@@ -1,10 +1,11 @@
 name: CI
 
+# The site deploys itself: Cloudflare Pages builds every push to main (and a preview for each PR).
 on:
   push:
     branches: [main]
   pull_request:
-  workflow_dispatch: # Actions → CI → Run workflow: test, then publish main
+  workflow_dispatch: # Actions → CI → Run workflow: run the tests by hand
 
 jobs:
   test:
@@ -20,32 +21,3 @@ jobs:
       - run: npm run build:mcp
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
-
-  # Publishes main to Cloudflare Pages only when started by hand, after the tests pass. Needs a token with
-  # Account > Cloudflare Pages > Edit (CLOUDFLARE_API_TOKEN_ACCOUNT, else CLOUDFLARE_API_TOKEN)
-  # and CLOUDFLARE_ACCOUNT_ID.
-  deploy:
-    needs: test
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_ACCOUNT || secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-    steps:
-      - name: Skip when Cloudflare is not configured
-        if: env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == ''
-        run: echo "::notice::Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets to deploy."
-      - uses: actions/checkout@v7
-        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
-      - uses: actions/setup-node@v7
-        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
-        with:
-          node-version: 22
-          cache: npm
-      - name: Build and deploy
-        if: env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != ''
-        run: |
-          npm ci
-          npm run build
-          npx --yes wrangler@4 pages project create fizzdoc --production-branch=main || true
-          npx --yes wrangler@4 pages deploy dist --project-name=fizzdoc --branch=main
