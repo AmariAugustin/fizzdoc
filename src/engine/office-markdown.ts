@@ -73,7 +73,11 @@ function inlineMarkdown(nodes: (HtmlNode | string)[], inTable = false): string {
       case 'del':
         return `~~${inside}~~`;
       case 'a':
-        return node.attrs.href ? `[${inside}](${node.attrs.href.replace(/\s/g, '%20').replace(/\)/g, '%29')})` : inside;
+        return node.attrs.href
+          ? `[${inside}](${node.attrs.href.replace(/[\s()<>\\]/g, (character) =>
+              character === '(' ? '%28' : character === ')' ? '%29' : encodeURIComponent(character),
+            )})`
+          : inside;
       case 'img':
         return node.attrs.alt || 'Image';
       case 'br':

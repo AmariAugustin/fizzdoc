@@ -143,6 +143,17 @@ describe('docxToHtml', () => {
     expect(await output.blob.text()).toContain('Revenue chart');
   });
 
+  it('escapes parentheses and spaces in Markdown link destinations', async () => {
+    const entries = unzipSync(readFileSync(new URL('./fixtures/rich.docx', import.meta.url)));
+    const relationships = strFromU8(entries['word/_rels/document.xml.rels']).replace(
+      'https://example.com',
+      'https://example.com/a_(b c)',
+    );
+    entries['word/_rels/document.xml.rels'] = strToU8(relationships);
+    const output = await docxToMarkdown(new File([zipSync(entries)], 'linked.docx'));
+    expect(await output.blob.text()).toContain('[link](https://example.com/a_%28b%20c%29)');
+  });
+
 });
 
 describe('pdfToDocx text grouping (pure)', () => {
