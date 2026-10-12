@@ -459,6 +459,15 @@ ${content}
   return { html, title: docTitle };
 }
 
+export async function docxToHtmlFile(file: File): Promise<Output> {
+  const { html } = await docxToHtml(file);
+  return {
+    blob: new Blob([html], { type: 'text/html;charset=utf-8' }),
+    name: `${baseName(file)}.html`,
+    summary: '1 file',
+  };
+}
+
 // ---------------------------------------------------------------------------
 // pdfToDocx
 // ---------------------------------------------------------------------------

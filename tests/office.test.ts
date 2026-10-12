@@ -6,6 +6,7 @@ import {
   buildDocxPackage,
   buildPptxPackage,
   docxToHtml,
+  docxToHtmlFile,
   headingStyles,
   linesFromItems,
   paragraphsFromLines,
@@ -101,6 +102,16 @@ describe('docxToHtml', () => {
     expect(html).toContain('break-before:page');
     expect(html).toMatch(/<img src="data:image\/png;base64,/);
   });
+
+  it('exports a standalone HTML file with its images inlined', async () => {
+    const output = await docxToHtmlFile(file('rich.docx'));
+    expect(output.name).toBe('rich.html');
+    expect(output.blob.type).toBe('text/html;charset=utf-8');
+    const html = await output.blob.text();
+    expect(html).toContain('<!doctype html>');
+    expect(html).toMatch(/<img src="data:image\/png;base64,/);
+  });
+
 });
 
 describe('pdfToDocx text grouping (pure)', () => {
