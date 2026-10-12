@@ -132,6 +132,26 @@ describe('docxToHtml', () => {
     expect(markdown).toContain('Before break\nAfter break');
   });
 
+  it('preserves all six Word heading levels in Markdown', async () => {
+    const entries = unzipSync(readFileSync(new URL('./fixtures/rich.docx', import.meta.url)));
+    const styles = strFromU8(entries['word/styles.xml']).replace(
+      '</w:styles>',
+      `${[2, 3, 4, 5, 6].map((level) => `<w:style w:type="paragraph" w:styleId="Heading${level}"><w:name w:val="heading ${level}"/></w:style>`).join('')}</w:styles>`,
+    );
+    const paragraphs = [1, 2, 3, 4, 5, 6]
+      .map((level) => `<w:p><w:pPr><w:pStyle w:val="Heading${level}"/></w:pPr><w:r><w:t>Level ${level}</w:t></w:r></w:p>`)
+      .join('');
+    const document = strFromU8(entries['word/document.xml']).replace('<w:sectPr', `${paragraphs}<w:sectPr`);
+    entries['word/styles.xml'] = strToU8(styles);
+    entries['word/document.xml'] = strToU8(document);
+
+    const output = await docxToMarkdown(new File([zipSync(entries)], 'headings.docx'));
+    const markdown = await output.blob.text();
+    for (let level = 1; level <= 6; level++) {
+      expect(markdown).toContain(`${'#'.repeat(level)} Level ${level}`);
+    }
+  });
+
   it('uses the Word image description as Markdown alt text', async () => {
     const entries = unzipSync(readFileSync(new URL('./fixtures/rich.docx', import.meta.url)));
     const document = strFromU8(entries['word/document.xml']).replace(
