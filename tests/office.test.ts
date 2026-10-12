@@ -125,9 +125,10 @@ describe('docxToHtml', () => {
     expect(markdown).toContain('[link](https://example.com)');
     expect(markdown).toMatch(/- Bullet one\n  - Nested bullet/);
     expect(markdown).toMatch(/1\. Numbered one\n2\. Numbered two/);
-    expect(markdown).toContain('| Spans two columns |');
+    expect(markdown).toContain('| Spans two columns |  |');
+    expect(markdown).toContain('| --- | --- |');
     expect(markdown).toContain('| Merged down | B1 |');
-    expect(markdown).toContain('| B2 shaded |');
+    expect(markdown).toContain('|  | B2 shaded |');
     expect(markdown).toContain('Before break\nAfter break');
   });
 

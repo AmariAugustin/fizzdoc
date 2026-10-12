@@ -121,9 +121,37 @@ function renderTable(table: HtmlNode): string {
   };
   collectRows(table);
   if (!rows.length) return '';
-  const rowText = (row: HtmlNode[]) =>
-    `| ${row.map((cell) => inlineMarkdown(cell.children, true).replace(/\s+/g, ' ').trim()).join(' | ')} |`;
-  return [rowText(rows[0]), `| ${rows[0].map(() => '---').join(' | ')} |`, ...rows.slice(1).map(rowText)].join('\n') + '\n\n';
+  const grid: string[][] = [];
+  const activeRowSpans = new Map<number, number>();
+  for (const [rowIndex, row] of rows.entries()) {
+    const values: string[] = [];
+    const occupied = new Set(activeRowSpans.keys());
+    for (const column of occupied) values[column] = '';
+    for (const [column, remaining] of activeRowSpans) {
+      if (remaining === 1) activeRowSpans.delete(column);
+      else activeRowSpans.set(column, remaining - 1);
+    }
+    let column = 0;
+    for (const cell of row) {
+      while (occupied.has(column)) column++;
+      const colSpan = Math.max(1, Number(cell.attrs.colspan) || 1);
+      const rowSpan = Math.max(1, Number(cell.attrs.rowspan) || 1);
+      values[column] = inlineMarkdown(cell.children, true).replace(/\s+/g, ' ').trim();
+      occupied.add(column);
+      for (let offset = 1; offset < colSpan; offset++) {
+        occupied.add(column + offset);
+        values[column + offset] = '';
+      }
+      if (rowSpan > 1) {
+        for (let offset = 0; offset < colSpan; offset++) activeRowSpans.set(column + offset, rowSpan - 1);
+      }
+      column += colSpan;
+    }
+    grid[rowIndex] = values;
+  }
+  const columnCount = Math.max(...grid.map((row) => row.length));
+  const rowText = (row: string[]) => `| ${Array.from({ length: columnCount }, (_, column) => row[column] ?? '').join(' | ')} |`;
+  return [rowText(grid[0]), `| ${Array.from({ length: columnCount }, () => '---').join(' | ')} |`, ...grid.slice(1).map(rowText)].join('\n') + '\n\n';
 }
 
 function renderBlocks(nodes: (HtmlNode | string)[]): string {
