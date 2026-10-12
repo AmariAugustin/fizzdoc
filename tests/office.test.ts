@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { strFromU8, unzipSync } from 'fflate';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { fixIndic } from '../src/engine/convert';
 import {
@@ -13,6 +13,7 @@ import {
   parseXml,
   type DocParagraph,
 } from '../src/engine/office';
+import { docxToMarkdown } from '../src/engine/office-markdown';
 
 const file = (name: string, type = '') =>
   new File([readFileSync(new URL(`./fixtures/${name}`, import.meta.url))], name, { type });
@@ -110,6 +111,35 @@ describe('docxToHtml', () => {
     const html = await output.blob.text();
     expect(html).toContain('<!doctype html>');
     expect(html).toMatch(/<img src="data:image\/png;base64,/);
+  });
+
+  it('converts rich.docx to Markdown with headings, lists and table cells', async () => {
+    const output = await docxToMarkdown(file('rich.docx'));
+    expect(output.name).toBe('rich.md');
+    expect(output.blob.type).toBe('text/markdown;charset=utf-8');
+    const markdown = await output.blob.text();
+    expect(markdown).toContain('# Rich document');
+    expect(markdown).toContain('# Custom-styled heading');
+    expect(markdown).toContain('**Bold**');
+    expect(markdown).toContain('*italic*');
+    expect(markdown).toContain('[link](https://example.com)');
+    expect(markdown).toMatch(/- Bullet one\n  - Nested bullet/);
+    expect(markdown).toMatch(/1\. Numbered one\n2\. Numbered two/);
+    expect(markdown).toContain('| Spans two columns |');
+    expect(markdown).toContain('| Merged down | B1 |');
+    expect(markdown).toContain('| B2 shaded |');
+    expect(markdown).toContain('Before break\nAfter break');
+  });
+
+  it('uses the Word image description as Markdown alt text', async () => {
+    const entries = unzipSync(readFileSync(new URL('./fixtures/rich.docx', import.meta.url)));
+    const document = strFromU8(entries['word/document.xml']).replace(
+      '<wp:extent',
+      '<wp:docPr id="1" name="Figure" descr="Revenue chart"/><wp:extent',
+    );
+    entries['word/document.xml'] = strToU8(document);
+    const output = await docxToMarkdown(new File([zipSync(entries)], 'described.docx'));
+    expect(await output.blob.text()).toContain('Revenue chart');
   });
 
 });

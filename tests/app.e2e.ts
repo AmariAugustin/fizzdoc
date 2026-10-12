@@ -658,8 +658,17 @@ test('prepares Word and Markdown documents for Save as PDF without running their
   expect(seen.violations).toEqual([]);
 });
 
-test('exports Word documents to standalone HTML', async ({ page }) => {
+test('exports Word documents to Markdown and standalone HTML', async ({ page }) => {
   const seen = watch(page);
+  await page.goto('/word-to-markdown/');
+  await page.locator('#file-input').setInputFiles(file('rich.docx'));
+  await page.getByRole('button', { name: 'Convert to Markdown' }).click();
+  await expect(page.locator('#status')).toContainText('Done');
+  const markdown = await downloadBytes(page);
+  expect(markdown.name).toBe('rich.md');
+  expect(markdown.bytes.toString('utf8')).toContain('# Rich document');
+  expect(markdown.bytes.toString('utf8')).toContain('| Merged down | B1 |');
+
   await page.goto('/word-to-html/');
   await page.locator('#file-input').setInputFiles(file('rich.docx'));
   await page.getByRole('button', { name: 'Convert to HTML' }).click();

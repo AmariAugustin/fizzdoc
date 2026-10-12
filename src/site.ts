@@ -21,7 +21,7 @@ export type ToolOp =
   | 'pdf-to-text'
   | 'text-to-pdf'
   | 'word-to-pdf'
-  | 'word-to-html'
+  | 'word-export'
   | 'excel-to-csv'
   | 'csv-to-excel'
   | 'excel-to-json'
@@ -901,7 +901,7 @@ TOOLS.push(
     ],
   },
   {
-    op: 'word-to-html',
+    op: 'word-export',
     format: 'word',
     slug: 'word-to-html',
     name: 'Word to HTML',
@@ -920,6 +920,27 @@ TOOLS.push(
     ],
     input: { accept: '.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
     preset: { format: 'html' },
+  },
+  {
+    op: 'word-export',
+    format: 'word',
+    slug: 'word-to-markdown',
+    name: 'Word to Markdown',
+    summary: 'Convert a .docx to Markdown with headings, lists and tables.',
+    action: 'Convert to Markdown',
+    title: 'Word to Markdown Free — DOCX to MD, No Upload | Fizzdoc',
+    description:
+      'Convert a Word document to Markdown in your browser. Keep headings, lists, tables, links and image descriptions; nothing is uploaded. Free and open source.',
+    h1: 'Convert a Word document to Markdown',
+    lede: 'Turn a .docx into a Markdown file with its headings, lists, tables, links and image descriptions, ready for notes, docs or GitHub.',
+    steps: ['Add one .docx file.', 'Click “Convert to Markdown”.', 'Download the .md file.'],
+    faq: [
+      PRIVACY_FAQ[0],
+      ['What is kept?', 'Headings, bold and italic text, links, lists and table cells are converted to Markdown. Images are represented by their alt text.'],
+      PRIVACY_FAQ[1],
+    ],
+    input: { accept: '.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
+    preset: { format: 'md' },
   },
   {
     op: 'excel-to-csv',
@@ -1749,6 +1770,13 @@ const KEYWORDS: Record<string, string[]> = {
     'DOCX HTML converter',
     'export Word to HTML',
     'convert Word document to HTML'
+  ],
+  'word-to-markdown': [
+    'Markdown from DOCX',
+    'Word to MD',
+    'DOCX Markdown converter',
+    'export Word to Markdown',
+    'convert Word document to Markdown'
   ],
   'excel-to-csv': [
     'convert XLSX to CSV',

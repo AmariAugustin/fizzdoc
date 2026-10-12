@@ -249,7 +249,9 @@ function renderDrawing(drawing: XNode, media: Record<string, string>): string {
   const width = extent ? Math.round(Number(extent.attrs.cx) / EMU_PER_PX) : undefined;
   const height = extent ? Math.round(Number(extent.attrs.cy) / EMU_PER_PX) : undefined;
   const sizeAttr = width && height ? ` width="${width}" height="${height}"` : '';
-  return `<img src="${data}"${sizeAttr} alt="">`;
+  const properties = deep(drawing, 'wp:docPr')[0];
+  const alt = properties?.attrs.descr || properties?.attrs.title || '';
+  return `<img src="${data}"${sizeAttr} alt="${escapeAttr(alt)}">`;
 }
 
 interface TableCell { colSpan: number; rowSpan: number; shade?: string; html: string }
