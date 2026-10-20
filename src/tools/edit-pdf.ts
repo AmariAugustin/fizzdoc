@@ -185,7 +185,7 @@ export function sanitizeWinAnsi(text: string): { text: string; changed: boolean 
 // Editor (browser-only; exercised by the Playwright harness, not vitest).
 // ---------------------------------------------------------------------------
 
-type Mode = 'edit-text' | 'add-text' | 'white-out';
+type Mode = 'edit-text' | 'add-text' | 'white-out' | 'signature';
 type PdfJsModule = typeof import('pdfjs-dist/legacy/build/pdf.mjs');
 type PdfDocumentProxy = Awaited<ReturnType<PdfJsModule['getDocument']>['promise']>;
 type PdfPage = Awaited<ReturnType<PdfDocumentProxy['getPage']>>;
@@ -208,6 +208,15 @@ interface Whiteout {
   height: number;
 }
 
+interface SignaturePlacement {
+  id: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  image: string;
+}
+
 interface PageState {
   index: number; // 0-based
   page?: PdfPage;
@@ -220,6 +229,7 @@ interface PageState {
   textEdits: Map<number, string>;
   added: AddedText[];
   whiteouts: Whiteout[];
+  signatures: SignaturePlacement[];
   rendered: boolean;
 }
 
@@ -238,7 +248,11 @@ export interface Editor {
   destroy(): void;
 }
 
-export async function openEditor(file: File, viewer: HTMLElement): Promise<Editor> {
+export interface EditorOptions {
+  signatureOnly?: boolean;
+}
+
+export async function openEditor(file: File, viewer: HTMLElement, options: EditorOptions = {}): Promise<Editor> {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   pdfjs.GlobalWorkerOptions.workerSrc = (await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url')).default;
   const originalBytes = new Uint8Array(await file.arrayBuffer());
@@ -278,7 +292,12 @@ export async function openEditor(file: File, viewer: HTMLElement): Promise<Edito
   addBtn.classList.add('mode-btn');
   const whiteBtn = makeButton(t('ed.whiteout'), t('ed.whiteout'));
   whiteBtn.classList.add('mode-btn');
-  modeGroup.append(editBtn, addBtn, whiteBtn);
+  const signatureBtn = makeButton(t('ed.signature'), t('ed.signature'));
+  signatureBtn.classList.add('mode-btn');
+  if (options.signatureOnly) {
+    editBtn.hidden = addBtn.hidden = whiteBtn.hidden = true;
+  }
+  modeGroup.append(editBtn, addBtn, whiteBtn, signatureBtn);
 
   const undoBtn = makeButton(t('ed.undo'), t('ed.undoLabel'));
   undoBtn.classList.add('edit-btn-icon');
@@ -305,17 +324,48 @@ export async function openEditor(file: File, viewer: HTMLElement): Promise<Edito
 
   const scroller = document.createElement('div');
   scroller.className = 'edit-scroll';
+  const signaturePanel = document.createElement('div');
+  signaturePanel.className = 'edit-signature-panel';
+  signaturePanel.hidden = true;
+  const signatureModes = document.createElement('div');
+  signatureModes.className = 'edit-signature-modes';
+  signatureModes.setAttribute('role', 'group');
+  signatureModes.setAttribute('aria-label', t('ed.signature'));
+  const drawSignatureBtn = makeButton(t('ed.drawSignature'), t('ed.drawSignature'));
+  const typeSignatureBtn = makeButton(t('ed.typeSignature'), t('ed.typeSignature'));
+  drawSignatureBtn.setAttribute('aria-pressed', 'true');
+  typeSignatureBtn.setAttribute('aria-pressed', 'false');
+  signatureModes.append(drawSignatureBtn, typeSignatureBtn);
+  const typedSignature = document.createElement('input');
+  typedSignature.type = 'text';
+  typedSignature.className = 'edit-signature-text';
+  typedSignature.placeholder = t('ed.signatureText');
+  typedSignature.setAttribute('aria-label', t('ed.signatureText'));
+  typedSignature.hidden = true;
+  const signatureCanvas = document.createElement('canvas');
+  signatureCanvas.className = 'edit-signature-canvas';
+  signatureCanvas.width = 600;
+  signatureCanvas.height = 180;
+  signatureCanvas.setAttribute('aria-label', t('ed.drawSignature'));
+  const clearSignatureBtn = makeButton(t('ed.clearSignature'), t('ed.clearSignature'));
+  const placeSignatureBtn = makeButton(t('ed.placeSignature'), t('ed.placeSignature'));
+  placeSignatureBtn.disabled = true;
+  signaturePanel.append(signatureModes, typedSignature, signatureCanvas, clearSignatureBtn, placeSignatureBtn);
   const hint = document.createElement('p');
   hint.className = 'edit-hint';
   hint.textContent = t('ed.hint');
-  viewer.append(toolbar, scroller, hint);
+  viewer.append(toolbar, signaturePanel, scroller, hint);
 
   // ---- state ----
-  let mode: Mode = 'edit-text';
+  let mode: Mode = options.signatureOnly ? 'signature' : 'edit-text';
   let zoomIndex = ZOOM_STEPS.indexOf(1);
   let editingKey: { page: number; idx: number } | null = null;
   let noticeShown = false;
   let nextId = 1;
+  let signatureInputMode: 'draw' | 'type' = 'draw';
+  let signatureHasInk = false;
+  let drawingSignature = false;
+  let activeSignature: string | null = null;
   const undoStack: (() => void)[] = [];
 
   function showNotice() {
@@ -331,9 +381,11 @@ export async function openEditor(file: File, viewer: HTMLElement): Promise<Edito
 
   function setMode(next: Mode) {
     mode = next;
-    for (const [btn, m] of [[editBtn, 'edit-text'], [addBtn, 'add-text'], [whiteBtn, 'white-out']] as const) {
+    for (const [btn, m] of [[editBtn, 'edit-text'], [addBtn, 'add-text'], [whiteBtn, 'white-out'], [signatureBtn, 'signature']] as const) {
       btn.setAttribute('aria-pressed', String(m === mode));
     }
+    signaturePanel.hidden = mode !== 'signature';
+    hint.textContent = mode === 'signature' ? t('ed.signatureHint') : t('ed.hint');
     scroller.dataset.mode = mode;
     editingKey = null;
     pageStates.filter((s) => s.rendered).forEach(rebuildOverlay);
@@ -349,7 +401,7 @@ export async function openEditor(file: File, viewer: HTMLElement): Promise<Edito
     overlay.className = 'edit-overlay';
     wrapper.append(canvas, overlay);
     scroller.append(wrapper);
-    pageStates.push({ index: n - 1, wrapper, canvas, overlay, dpr: 1, runs: [], textEdits: new Map(), added: [], whiteouts: [], rendered: false });
+    pageStates.push({ index: n - 1, wrapper, canvas, overlay, dpr: 1, runs: [], textEdits: new Map(), added: [], whiteouts: [], signatures: [], rendered: false });
   }
 
   // Start at the largest zoom where the first page fits the width, so a phone shows the whole page.
@@ -427,6 +479,7 @@ export async function openEditor(file: File, viewer: HTMLElement): Promise<Edito
     });
     for (const added of state.added) appendAddedBox(state, added);
     for (const wo of state.whiteouts) appendWhiteoutBox(state, wo);
+    for (const signature of state.signatures) appendSignatureBox(state, signature);
   }
 
   function appendHitbox(state: PageState, idx: number, run: TextRun) {
@@ -626,6 +679,96 @@ export async function openEditor(file: File, viewer: HTMLElement): Promise<Edito
     state.overlay.append(div);
   }
 
+  function positionSignature(state: PageState, signature: SignaturePlacement, wrap: HTMLDivElement) {
+    const [centerX, centerY] = state.viewport!.convertToViewportPoint(signature.x, signature.y);
+    const scale = state.viewport!.scale / state.dpr;
+    const width = signature.width * scale;
+    const height = signature.height * scale;
+    wrap.style.left = `${centerX / state.dpr - width / 2}px`;
+    wrap.style.top = `${centerY / state.dpr - height / 2}px`;
+    wrap.style.width = `${width}px`;
+    wrap.style.height = `${height}px`;
+  }
+
+  function appendSignatureBox(state: PageState, signature: SignaturePlacement) {
+    const wrap = document.createElement('div');
+    wrap.className = 'edit-signature-box';
+    positionSignature(state, signature, wrap);
+    const image = document.createElement('img');
+    image.src = signature.image;
+    image.alt = '';
+    image.draggable = false;
+    const move = makeButton('⠿', t('ed.moveSignature'));
+    move.className = 'edit-box-handle edit-signature-move';
+    move.setAttribute('aria-label', t('ed.moveSignature'));
+    const resize = makeButton('↘', t('ed.resizeSignature'));
+    resize.className = 'edit-signature-resize';
+    resize.setAttribute('aria-label', t('ed.resizeSignature'));
+    const remove = makeButton('×', t('ed.removeSignature'));
+    remove.className = 'edit-box-close edit-signature-remove';
+    remove.setAttribute('aria-label', t('ed.removeSignature'));
+
+    move.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      move.setPointerCapture(event.pointerId);
+      const start = toPdfPoint(state, event.clientX, event.clientY);
+      const origin = { x: signature.x, y: signature.y };
+      const moveSignature = (pointer: PointerEvent) => {
+        const point = toPdfPoint(state, pointer.clientX, pointer.clientY);
+        signature.x = origin.x + point[0] - start[0];
+        signature.y = origin.y + point[1] - start[1];
+        positionSignature(state, signature, wrap);
+      };
+      const stopMoving = () => {
+        move.removeEventListener('pointermove', moveSignature);
+        move.removeEventListener('pointerup', stopMoving);
+        move.removeEventListener('pointercancel', stopMoving);
+      };
+      move.addEventListener('pointermove', moveSignature);
+      move.addEventListener('pointerup', stopMoving);
+      move.addEventListener('pointercancel', stopMoving);
+    });
+
+    resize.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      resize.setPointerCapture(event.pointerId);
+      const origin = { x: event.clientX, y: event.clientY, width: signature.width, height: signature.height };
+      const resizeSignature = (pointer: PointerEvent) => {
+        const scale = state.viewport!.scale / state.dpr;
+        const ratio = origin.width / origin.height;
+        const deltaX = (pointer.clientX - origin.x) / scale;
+        const deltaY = ((pointer.clientY - origin.y) / scale) * ratio;
+        const delta = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
+        signature.width = Math.max(12, 8 * ratio, origin.width + delta);
+        signature.height = signature.width / ratio;
+        positionSignature(state, signature, wrap);
+      };
+      const stopResizing = () => {
+        resize.removeEventListener('pointermove', resizeSignature);
+        resize.removeEventListener('pointerup', stopResizing);
+        resize.removeEventListener('pointercancel', stopResizing);
+      };
+      resize.addEventListener('pointermove', resizeSignature);
+      resize.addEventListener('pointerup', stopResizing);
+      resize.addEventListener('pointercancel', stopResizing);
+    });
+
+    remove.addEventListener('pointerdown', (event) => event.stopPropagation());
+    remove.addEventListener('click', () => removeSignature(state, signature, true));
+    wrap.append(image, move, resize, remove);
+    state.overlay.append(wrap);
+  }
+
+  function removeSignature(state: PageState, signature: SignaturePlacement, recordUndo: boolean) {
+    const index = state.signatures.indexOf(signature);
+    if (index === -1) return;
+    state.signatures.splice(index, 1);
+    if (recordUndo) pushUndo(() => { state.signatures.splice(index, 0, signature); rebuildOverlay(state); });
+    rebuildOverlay(state);
+  }
+
   function toPdfPoint(state: PageState, clientX: number, clientY: number): [number, number] {
     const rect = state.overlay.getBoundingClientRect();
     const cx = (clientX - rect.left) * state.dpr;
@@ -648,10 +791,105 @@ export async function openEditor(file: File, viewer: HTMLElement): Promise<Edito
         });
       } else if (mode === 'white-out') {
         startWhiteoutDrag(state, event);
+      } else if (mode === 'signature' && activeSignature) {
+        const [x, y] = toPdfPoint(state, event.clientX, event.clientY);
+        const scale = state.viewport!.scale / state.dpr;
+        const width = 150 / scale;
+        const height = width * (signatureCanvas.height / signatureCanvas.width);
+        const signature: SignaturePlacement = { id: nextId++, x, y, width, height, image: activeSignature };
+        state.signatures.push(signature);
+        pushUndo(() => removeSignature(state, signature, false));
+        rebuildOverlay(state);
       }
     });
   }
   pageStates.forEach(wireBackground);
+
+  function updateSignatureButtons() {
+    placeSignatureBtn.disabled = !signatureHasInk;
+  }
+
+  function setSignatureInputMode(next: 'draw' | 'type') {
+    signatureInputMode = next;
+    const drawing = next === 'draw';
+    drawSignatureBtn.setAttribute('aria-pressed', String(drawing));
+    typeSignatureBtn.setAttribute('aria-pressed', String(!drawing));
+    signatureCanvas.hidden = !drawing;
+    typedSignature.hidden = drawing;
+    signatureCanvas.getContext('2d')!.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+    signatureHasInk = false;
+    activeSignature = null;
+    if (!drawing) renderTypedSignature();
+    updateSignatureButtons();
+  }
+
+  function renderTypedSignature() {
+    const context = signatureCanvas.getContext('2d')!;
+    context.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+    const text = typedSignature.value.trim();
+    if (!text) {
+      signatureHasInk = false;
+      updateSignatureButtons();
+      return;
+    }
+    context.fillStyle = '#111';
+    let size = 112;
+    context.font = `italic ${size}px "Segoe Script", "Brush Script MT", cursive`;
+    const maxWidth = signatureCanvas.width - 36;
+    size *= Math.min(1, maxWidth / context.measureText(text).width);
+    context.font = `italic ${size}px "Segoe Script", "Brush Script MT", cursive`;
+    context.textBaseline = 'middle';
+    context.fillText(text, 18, signatureCanvas.height / 2, maxWidth);
+    signatureHasInk = true;
+    updateSignatureButtons();
+  }
+
+  drawSignatureBtn.addEventListener('click', () => setSignatureInputMode('draw'));
+  typeSignatureBtn.addEventListener('click', () => setSignatureInputMode('type'));
+  typedSignature.addEventListener('input', renderTypedSignature);
+  clearSignatureBtn.addEventListener('click', () => {
+    typedSignature.value = '';
+    signatureCanvas.getContext('2d')!.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+    signatureHasInk = false;
+    activeSignature = null;
+    updateSignatureButtons();
+  });
+  signatureCanvas.addEventListener('pointerdown', (event) => {
+    if (signatureInputMode !== 'draw') return;
+    event.preventDefault();
+    signatureCanvas.setPointerCapture(event.pointerId);
+    drawingSignature = true;
+    const rect = signatureCanvas.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * signatureCanvas.width;
+    const y = ((event.clientY - rect.top) / rect.height) * signatureCanvas.height;
+    const context = signatureCanvas.getContext('2d')!;
+    context.strokeStyle = '#111';
+    context.lineWidth = 7;
+    context.lineCap = 'round';
+    context.lineJoin = 'round';
+    context.beginPath();
+    context.moveTo(x, y);
+    context.lineTo(x + 0.1, y + 0.1);
+    context.stroke();
+    signatureHasInk = true;
+    activeSignature = null;
+    updateSignatureButtons();
+  });
+  signatureCanvas.addEventListener('pointermove', (event) => {
+    if (!drawingSignature || signatureInputMode !== 'draw') return;
+    const rect = signatureCanvas.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * signatureCanvas.width;
+    const y = ((event.clientY - rect.top) / rect.height) * signatureCanvas.height;
+    const context = signatureCanvas.getContext('2d')!;
+    context.lineTo(x, y);
+    context.stroke();
+  });
+  const stopDrawingSignature = () => { drawingSignature = false; };
+  signatureCanvas.addEventListener('pointerup', stopDrawingSignature);
+  signatureCanvas.addEventListener('pointercancel', stopDrawingSignature);
+  placeSignatureBtn.addEventListener('click', () => {
+    if (signatureHasInk) activeSignature = signatureCanvas.toDataURL('image/png');
+  });
 
   function startWhiteoutDrag(state: PageState, downEvent: PointerEvent) {
     const rect = state.overlay.getBoundingClientRect();
@@ -698,6 +936,8 @@ export async function openEditor(file: File, viewer: HTMLElement): Promise<Edito
   editBtn.addEventListener('click', () => setMode('edit-text'));
   addBtn.addEventListener('click', () => setMode('add-text'));
   whiteBtn.addEventListener('click', () => setMode('white-out'));
+  signatureBtn.addEventListener('click', () => setMode('signature'));
+  setMode(mode);
   undoBtn.disabled = true;
   undoBtn.addEventListener('click', () => {
     const undo = undoStack.pop();
@@ -712,12 +952,12 @@ export async function openEditor(file: File, viewer: HTMLElement): Promise<Edito
     zoomIndex = Math.min(ZOOM_STEPS.length - 1, zoomIndex + 1);
     rerenderAll();
   });
-  setMode('edit-text');
   zoomLabel.textContent = `${Math.round(ZOOM_STEPS[zoomIndex] * 100)}%`;
   pageLabel.textContent = t('ed.page', { n: 1, total: doc.numPages });
 
   // ---- save ----
   async function save(): Promise<Output> {
+    if (options.signatureOnly && !pageStates.some((state) => state.signatures.length)) throw new LocalError('SIGNATURE_REQUIRED');
     const [{ PDFDocument, StandardFonts, rgb, degrees }, { editTextInPlace }] = await Promise.all([import('pdf-lib'), import('../engine/pdf-text')]);
     const pdfDoc = await PDFDocument.load(originalBytes);
     const pages = pdfDoc.getPages();
@@ -784,12 +1024,28 @@ export async function openEditor(file: File, viewer: HTMLElement): Promise<Edito
         });
         edits++;
       }
+      for (const signature of state.signatures) {
+        const image = await pdfDoc.embedPng(signature.image);
+        const rotation = ((page.getRotation().angle % 360) + 360) % 360;
+        const quarterTurn = rotation === 90 || rotation === 270;
+        const width = quarterTurn ? signature.height : signature.width;
+        const height = quarterTurn ? signature.width : signature.height;
+        const radians = (rotation * Math.PI) / 180;
+        page.drawImage(image, {
+          x: signature.x - (Math.cos(radians) * width - Math.sin(radians) * height) / 2,
+          y: signature.y - (Math.sin(radians) * width + Math.cos(radians) * height) / 2,
+          width,
+          height,
+          rotate: degrees(rotation),
+        });
+        edits++;
+      }
     }
     if (unsupported) showNotice();
     const saved = await pdfDoc.save();
     return {
       blob: new Blob([saved as Uint8Array<ArrayBuffer>], { type: 'application/pdf' }),
-      name: `${baseName}-edited.pdf`,
+      name: `${baseName}-${options.signatureOnly ? 'signed' : 'edited'}.pdf`,
       summary: `${edits} ${edits === 1 ? 'edit' : 'edits'}`,
     };
   }

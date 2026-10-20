@@ -3,6 +3,7 @@
 import { copyFile, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { PDFDocument } from 'pdf-lib';
@@ -12,7 +13,7 @@ import { parseAudio } from '../src/engine/audio';
 
 let dir: string;
 let client: Client;
-const fixture = (name: string) => new URL(`./fixtures/${name}`, import.meta.url).pathname;
+const fixture = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
 const at = (name: string) => join(dir, name);
 
 async function call(name: string, args: Record<string, unknown>) {
