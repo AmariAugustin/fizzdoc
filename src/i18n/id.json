@@ -207,6 +207,16 @@
     "ed.editText": "Edit teks",
     "ed.addText": "Tambah teks",
     "ed.whiteout": "Blok putih",
+    "ed.signature": "Tanda tangan",
+    "ed.drawSignature": "Gambar",
+    "ed.typeSignature": "Ketik",
+    "ed.signatureText": "Ketik tanda tangan Anda",
+    "ed.clearSignature": "Hapus tanda tangan",
+    "ed.placeSignature": "Letakkan tanda tangan",
+    "ed.signatureHint": "Gambar atau ketik tanda tangan, pilih Letakkan tanda tangan, lalu klik lokasinya. Seret untuk memindahkan; gunakan sudut untuk mengubah ukuran.",
+    "ed.moveSignature": "Seret untuk memindahkan tanda tangan",
+    "ed.resizeSignature": "Ubah ukuran tanda tangan",
+    "ed.removeSignature": "Hapus tanda tangan",
     "ed.undo": "Batalkan",
     "ed.undoLabel": "Batalkan suntingan terakhir",
     "ed.zoomOut": "Perkecil",
@@ -744,6 +754,21 @@
         "hapus teks jadi putih di pdf",
         "editor pdf tanpa daftar"
       ]
+    },
+    "sign-pdf": {
+      "name": "Tanda Tangani PDF",
+      "summary": "Tambahkan tanda tangan yang digambar atau diketik ke PDF.",
+      "action": "Simpan PDF bertanda tangan",
+      "title": "Tanda Tangani PDF Gratis — Gambar atau Ketik | Fizzdoc",
+      "description": "Tanda tangani PDF dengan menggambar atau mengetik tanda tangan, lalu letakkan dan ubah ukurannya. Semua tetap di perangkat; tidak ada unggahan. Gratis.",
+      "h1": "Tanda tangani PDF tanpa mengunggahnya",
+      "lede": "Gambar dengan mouse atau jari, atau ketik nama Anda. Letakkan tanda tangan di halaman, pindahkan atau ubah ukurannya, lalu simpan PDF di perangkat.",
+      "steps": [
+        "Tambahkan satu file PDF.",
+        "Gambar atau ketik tanda tangan, pilih Letakkan tanda tangan lalu klik lokasinya. Seret untuk memindahkan atau mengubah ukuran.",
+        "Klik “Simpan PDF bertanda tangan” dan unduh salinannya."
+      ],
+      "keywords": ["tanda tangani PDF", "tambahkan tanda tangan ke PDF", "gambar tanda tangan di PDF", "ketik tanda tangan di PDF", "tanda tangani kontrak online"]
     },
     "redact-pdf": {
       "name": "Sensor PDF",

@@ -94,6 +94,7 @@ function setUp(op: ToolOp) {
   type Editor = { save(options: Options, onProgress: (fraction: number) => void): Promise<Output>; destroy(): void };
   const EDITORS: Partial<Record<ToolOp, (file: File, viewer: HTMLElement) => Promise<Editor>>> = {
     'edit-pdf': async (file, view) => (await import('./tools/edit-pdf')).openEditor(file, view),
+    'sign-pdf': async (file, view) => (await import('./tools/edit-pdf')).openEditor(file, view, { signatureOnly: true }),
     'audio-split': async (file, view) => (await import('./tools/audio-split')).openSplitter(file, view),
     'redact-pdf': async (file, view) => {
       const redactor = await (await import('./tools/redact-pdf')).openRedactor(file, view);
@@ -183,6 +184,7 @@ function setUp(op: ToolOp) {
       };
     },
     'edit-pdf': async (_, o) => (await editor!.ready).save(o, progressLabel),
+    'sign-pdf': async (_, o) => (await editor!.ready).save(o, progressLabel),
     'redact-pdf': async (_, o) => (await editor!.ready).save(o, progressLabel),
     'audio-split': async () => (await editor!.ready).save({}, progressLabel),
     'audio-merge': async (f) => {

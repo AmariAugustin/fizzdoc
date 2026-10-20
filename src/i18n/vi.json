@@ -207,6 +207,16 @@
     "ed.editText": "Sửa văn bản",
     "ed.addText": "Thêm văn bản",
     "ed.whiteout": "Che trắng",
+    "ed.signature": "Chữ ký",
+    "ed.drawSignature": "Vẽ",
+    "ed.typeSignature": "Nhập",
+    "ed.signatureText": "Nhập chữ ký của bạn",
+    "ed.clearSignature": "Xóa chữ ký",
+    "ed.placeSignature": "Đặt chữ ký",
+    "ed.signatureHint": "Vẽ hoặc nhập chữ ký, chọn Đặt chữ ký rồi nhấp vào vị trí mong muốn. Kéo để di chuyển; dùng góc để đổi kích thước.",
+    "ed.moveSignature": "Kéo để di chuyển chữ ký",
+    "ed.resizeSignature": "Đổi kích thước chữ ký",
+    "ed.removeSignature": "Xóa chữ ký",
     "ed.undo": "Hoàn tác",
     "ed.undoLabel": "Hoàn tác chỉnh sửa gần nhất",
     "ed.zoomOut": "Thu nhỏ",
@@ -744,6 +754,21 @@
         "che trắng văn bản trong pdf",
         "công cụ sửa pdf không cần đăng ký"
       ]
+    },
+    "sign-pdf": {
+      "name": "Ký PDF",
+      "summary": "Thêm chữ ký vẽ hoặc nhập vào PDF.",
+      "action": "Lưu PDF đã ký",
+      "title": "Ký PDF Miễn Phí — Vẽ hoặc Nhập Chữ Ký | Fizzdoc",
+      "description": "Ký PDF bằng cách vẽ hoặc nhập chữ ký, sau đó đặt và đổi kích thước trên trang. Mọi thứ ở trên thiết bị của bạn; không tải lên. Miễn phí.",
+      "h1": "Ký PDF mà không tải tệp lên",
+      "lede": "Vẽ bằng chuột hoặc ngón tay, hoặc nhập tên của bạn. Đặt chữ ký trên trang, di chuyển hoặc đổi kích thước rồi lưu PDF trên thiết bị.",
+      "steps": [
+        "Thêm một tệp PDF.",
+        "Vẽ hoặc nhập chữ ký, chọn Đặt chữ ký rồi nhấp vào vị trí mong muốn. Kéo để di chuyển hoặc đổi kích thước.",
+        "Nhấp “Lưu PDF đã ký” và tải bản sao xuống."
+      ],
+      "keywords": ["ký PDF", "thêm chữ ký vào PDF", "vẽ chữ ký trên PDF", "nhập chữ ký vào PDF", "ký hợp đồng trực tuyến"]
     },
     "redact-pdf": {
       "name": "Che Đen PDF",

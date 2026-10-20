@@ -148,6 +148,7 @@
     "app.moveDown": "Descendre",
     "app.remove": "Retirer",
     "error.INVALID_PDF": "Ce fichier n'a pas pu être lu comme un PDF. Il est peut-être endommagé ou n'est pas un PDF.",
+    "error.SIGNATURE_REQUIRED": "Placez une signature sur le PDF avant de l’enregistrer.",
     "error.BAD_PASSWORD": "Ce mot de passe n'a pas fonctionné après trois essais. Rien n'a été modifié.",
     "error.PASSWORD_REQUIRED": "Ce PDF a besoin de son mot de passe pour continuer. Rien n'a été modifié.",
     "error.BAD_RANGE": "Vérifiez les numéros de page. Utilisez des numéros et des plages comme « 1-3, 8 » dans les limites du nombre de pages du document.",
@@ -207,6 +208,16 @@
     "ed.editText": "Modifier le texte",
     "ed.addText": "Ajouter du texte",
     "ed.whiteout": "Masquer",
+    "ed.signature": "Signature",
+    "ed.drawSignature": "Dessiner",
+    "ed.typeSignature": "Saisir",
+    "ed.signatureText": "Saisissez votre signature",
+    "ed.clearSignature": "Effacer la signature",
+    "ed.placeSignature": "Placer la signature",
+    "ed.signatureHint": "Dessinez ou saisissez une signature, choisissez Placer la signature, puis cliquez à l’endroit voulu. Faites-la glisser pour la déplacer et utilisez la poignée pour la redimensionner.",
+    "ed.moveSignature": "Faire glisser pour déplacer la signature",
+    "ed.resizeSignature": "Redimensionner la signature",
+    "ed.removeSignature": "Retirer la signature",
     "ed.undo": "Annuler",
     "ed.undoLabel": "Annuler la dernière modification",
     "ed.zoomOut": "Zoom arrière",
@@ -744,6 +755,21 @@
         "masquer du texte dans un pdf",
         "éditeur de pdf sans inscription"
       ]
+    },
+    "sign-pdf": {
+      "name": "Signer un PDF",
+      "summary": "Ajoutez une signature dessinée ou saisie à votre PDF.",
+      "action": "Enregistrer le PDF signé",
+      "title": "Signer un PDF Gratuit — Dessiner ou Saisir | Fizzdoc",
+      "description": "Signez un PDF en dessinant ou en saisissant votre signature, puis placez-la et redimensionnez-la. Tout reste sur votre appareil, sans envoi. Gratuit.",
+      "h1": "Signez un PDF sans le téléverser",
+      "lede": "Dessinez avec une souris ou un doigt, ou saisissez votre nom. Placez la signature sur la page, déplacez-la ou redimensionnez-la, puis enregistrez le PDF signé sur votre appareil.",
+      "steps": [
+        "Ajoutez un fichier PDF.",
+        "Dessinez ou saisissez votre signature, choisissez Placer la signature et cliquez où elle doit apparaître. Faites-la glisser pour la déplacer ou la redimensionner.",
+        "Cliquez sur « Enregistrer le PDF signé » et téléchargez la copie."
+      ],
+      "keywords": ["signer un PDF", "ajouter une signature à un PDF", "dessiner une signature sur PDF", "saisir une signature sur PDF", "signer un contrat en ligne"]
     },
     "redact-pdf": {
       "name": "Caviarder un PDF",

@@ -5,7 +5,7 @@ import { FORMATS, TOOLS } from '../src/site';
 // The same fields the home page puts on each tool card.
 const docs: Doc[] = TOOLS.map((t) => ({
   name: t.name,
-  text: [t.summary, t.slug.replaceAll('-', ' '), FORMATS[t.format].label, FORMATS[t.format].ext, t.input?.accept ?? ''].join(' '),
+  text: [t.summary, t.slug.replaceAll('-', ' '), FORMATS[t.format].label, FORMATS[t.format].ext, t.input?.accept ?? '', ...(t.keywords ?? [])].join(' '),
 }));
 const top = (query: string) => rank(query, docs).map((i) => TOOLS[i].slug);
 
@@ -15,6 +15,8 @@ describe('tool search', () => {
     expect(top('compress pdf')[0]).toBe('compress-pdf');
     expect(top('split audio')[0]).toBe('split-audio');
     expect(top('redact')[0]).toBe('redact-pdf');
+    expect(top('sign pdf')[0]).toBe('sign-pdf');
+    expect(top('add signature to pdf')[0]).toBe('sign-pdf');
   });
 
   it('matches word starts and everyday synonyms', () => {

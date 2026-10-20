@@ -12,6 +12,7 @@ export type ToolOp =
   | 'office-compress'
   | 'compress-pdf'
   | 'edit-pdf'
+  | 'sign-pdf'
   | 'redact-pdf'
   | 'scan-pdf'
   | 'ocr-pdf'
@@ -666,6 +667,30 @@ TOOLS.push(
         'Is the original text removed?',
         'When the line is rewritten in the PDF’s own font, yes: the old wording is replaced in the file. With a standard font, and with White-out, the original is only covered. For sensitive information, use Redact PDF.',
       ],
+      PRIVACY_FAQ[1],
+    ],
+  },
+  {
+    op: 'sign-pdf',
+    format: 'pdf',
+    slug: 'sign-pdf',
+    name: 'Sign PDF',
+    summary: 'Add a drawn or typed signature to a PDF on your device.',
+    action: 'Save signed PDF',
+    title: 'Sign PDF Free — Draw or Type a Signature, No Upload | Fizzdoc',
+    description:
+      'Sign a PDF by drawing or typing your signature, then place and resize it on the page. Everything stays on your device; nothing is uploaded. Free.',
+    h1: 'Sign a PDF without uploading it',
+    lede: 'Draw with a mouse or finger, or type your name. Place your signature on the page, move or resize it, then save the signed PDF on your device.',
+    steps: [
+      'Add one PDF file.',
+      'Draw or type your signature, choose Place signature and click where it belongs. Drag to move or resize it.',
+      'Click “Save signed PDF” and download the signed copy.',
+    ],
+    faq: [
+      PRIVACY_FAQ[0],
+      ['Is this a legally binding digital signature?', 'This tool adds a picture of your signature to the PDF. It does not create a certificate-backed digital signature or verify anyone’s identity. Check whether an image signature is accepted before relying on it.'],
+      ['Can I sign on my phone?', 'Yes. Draw with your finger on the signature canvas, then tap the PDF page to place it.'],
       PRIVACY_FAQ[1],
     ],
   },
@@ -1531,6 +1556,13 @@ const KEYWORDS: Record<string, string[]> = {
     'add text to a PDF',
     'edit PDF text in the same font',
     'PDF editor without sign-up'
+  ],
+  'sign-pdf': [
+    'sign PDF',
+    'add a signature to a PDF',
+    'draw a signature on PDF',
+    'type a signature on PDF',
+    'sign a contract online'
   ],
   'redact-pdf': [
     'black out text in a PDF',

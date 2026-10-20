@@ -1,10 +1,11 @@
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
-import { PDFDocument, PDFName } from 'pdf-lib';
+import { degrees, PDFDocument, PDFName } from 'pdf-lib';
 import { PAGES, SITE_LANGS } from '../src/seo';
 import { SITE, TOOLS } from '../src/site';
 
-const file = (name: string) => new URL(`./fixtures/${name}`, import.meta.url).pathname;
+const file = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
 const fixture = (name: string) => file(`${name}.pdf`);
 
 /** Records every request and console CSP violation, so tests can prove nothing leaves the page. */
@@ -695,6 +696,137 @@ test('edits PDF text in place and saves on the device', async ({ page, baseURL }
   expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
   // The line itself was rewritten in the file, not covered up.
   expect((await pdfText(bytes))[0]).toContain('Replaced text');
+  const origin = new URL(baseURL!).origin;
+  for (const request of seen.requests) if (!request.url.startsWith('blob:')) expect(new URL(request.url).origin).toBe(origin);
+  expect(seen.violations).toEqual([]);
+});
+
+test('draws or types a signature, places and resizes it, then embeds it in the PDF', async ({ page, baseURL }) => {
+  const seen = watch(page);
+  await page.goto('/edit-pdf/');
+  await page.locator('#file-input').setInputFiles(fixture('text-only'));
+  const viewer = page.locator('#viewer');
+  await page.getByRole('button', { name: 'Signature' }).click();
+
+  const canvas = viewer.locator('.edit-signature-canvas');
+  await canvas.scrollIntoViewIfNeeded();
+  const canvasBox = await canvas.boundingBox();
+  await page.mouse.move(canvasBox!.x + 32, canvasBox!.y + 60);
+  await page.mouse.down();
+  await page.mouse.move(canvasBox!.x + 90, canvasBox!.y + 38, { steps: 4 });
+  await page.mouse.move(canvasBox!.x + 145, canvasBox!.y + 56, { steps: 4 });
+  await page.mouse.up();
+  await page.getByRole('button', { name: 'Place signature' }).click();
+
+  const overlay = viewer.locator('.edit-overlay').first();
+  await overlay.scrollIntoViewIfNeeded();
+  const pageBox = await overlay.boundingBox();
+  await overlay.click({ position: { x: pageBox!.width * 0.55, y: pageBox!.height * 0.65 } });
+  const firstSignature = viewer.locator('.edit-signature-box').first();
+  await expect(firstSignature).toBeVisible();
+  const originalBox = await firstSignature.boundingBox();
+  const resize = firstSignature.getByRole('button', { name: 'Resize signature' });
+  await resize.scrollIntoViewIfNeeded();
+  const resizeBox = await resize.boundingBox();
+  await page.mouse.move(resizeBox!.x + 5, resizeBox!.y + 5);
+  await page.mouse.down();
+  await page.mouse.move(resizeBox!.x + 35, resizeBox!.y + 25, { steps: 3 });
+  await page.mouse.up();
+  expect((await firstSignature.boundingBox())!.width).toBeGreaterThan(originalBox!.width);
+
+  await page.getByRole('button', { name: 'Type' }).click();
+  await viewer.getByRole('textbox', { name: 'Type your signature' }).fill('Alex Example');
+  await page.getByRole('button', { name: 'Place signature' }).click();
+  await overlay.scrollIntoViewIfNeeded();
+  await overlay.click({ position: { x: pageBox!.width * 0.42, y: pageBox!.height * 0.82 } });
+  await expect(viewer.locator('.edit-signature-box')).toHaveCount(2);
+
+  await page.getByRole('button', { name: 'Save PDF' }).click();
+  await expect(page.locator('#status')).toContainText('2 edits');
+  const { name, bytes } = await downloadBytes(page);
+  expect(name).toBe('text-only-edited.pdf');
+  const imageCount = (pdf: Buffer) => pdf.toString('latin1').match(/\/Subtype\s*\/Image/g)?.length ?? 0;
+  // Each transparent PNG has an image and a soft-mask XObject.
+  expect(imageCount(bytes) - imageCount(readFileSync(fixture('text-only')))).toBe(4);
+  const origin = new URL(baseURL!).origin;
+  for (const request of seen.requests) if (!request.url.startsWith('blob:')) expect(new URL(request.url).origin).toBe(origin);
+  expect(seen.violations).toEqual([]);
+});
+
+test('keeps a placed signature horizontal on a rotated PDF page', async ({ page }) => {
+  const source = await PDFDocument.create();
+  source.addPage([600, 800]).setRotation(degrees(90));
+  await page.goto('/edit-pdf/');
+  await page.locator('#file-input').setInputFiles({
+    name: 'rotated.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.from(await source.save()),
+  });
+  const viewer = page.locator('#viewer');
+  await page.getByRole('button', { name: 'Signature' }).click();
+  const canvas = viewer.locator('.edit-signature-canvas');
+  await canvas.scrollIntoViewIfNeeded();
+  const canvasBox = await canvas.boundingBox();
+  await page.mouse.move(canvasBox!.x + 24, canvasBox!.y + 54);
+  await page.mouse.down();
+  await page.mouse.move(canvasBox!.x + 270, canvasBox!.y + 54, { steps: 8 });
+  await page.mouse.up();
+  await page.getByRole('button', { name: 'Place signature' }).click();
+  const overlay = viewer.locator('.edit-overlay').first();
+  await overlay.scrollIntoViewIfNeeded();
+  const pageBox = await overlay.boundingBox();
+  await overlay.click({ position: { x: pageBox!.width / 2, y: pageBox!.height / 2 } });
+  await page.getByRole('button', { name: 'Save PDF' }).click();
+  const signed = await downloadBytes(page);
+  await page.locator('#file-input').setInputFiles({ name: signed.name, mimeType: 'application/pdf', buffer: signed.bytes });
+
+  const pageCanvas = viewer.locator('.edit-page canvas').first();
+  await expect(pageCanvas).toBeVisible();
+  const ink = await pageCanvas.evaluate((element) => {
+    const canvas = element as HTMLCanvasElement;
+    const pixels = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data;
+    let minX = canvas.width, maxX = 0, minY = canvas.height, maxY = 0;
+    for (let y = 0; y < canvas.height; y++) {
+      for (let x = 0; x < canvas.width; x++) {
+        const offset = (y * canvas.width + x) * 4;
+        if (pixels[offset] < 100 && pixels[offset + 1] < 100 && pixels[offset + 2] < 100) {
+          minX = Math.min(minX, x);
+          maxX = Math.max(maxX, x);
+          minY = Math.min(minY, y);
+          maxY = Math.max(maxY, y);
+        }
+      }
+    }
+    return { width: maxX - minX, height: maxY - minY };
+  });
+  expect(ink.width).toBeGreaterThan(ink.height * 2);
+});
+
+test('the dedicated Sign PDF page starts in signature mode and saves a signed copy locally', async ({ page, baseURL }) => {
+  const seen = watch(page);
+  await page.goto('/sign-pdf/');
+  await page.locator('#file-input').setInputFiles(fixture('text-only'));
+  const viewer = page.locator('#viewer');
+  const signatureMode = page.getByRole('button', { name: 'Signature', exact: true });
+  await expect(signatureMode).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'Edit text' })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Add text' })).toBeHidden();
+  await page.getByRole('button', { name: 'Save signed PDF' }).click();
+  await expect(page.locator('#status')).toContainText('Place a signature on the PDF before saving it.');
+
+  await page.getByRole('button', { name: 'Type' }).click();
+  await viewer.getByRole('textbox', { name: 'Type your signature' }).fill('Jordan Example');
+  await page.getByRole('button', { name: 'Place signature' }).click();
+  const overlay = viewer.locator('.edit-overlay').first();
+  await overlay.scrollIntoViewIfNeeded();
+  const box = await overlay.boundingBox();
+  await overlay.click({ position: { x: box!.width * 0.6, y: box!.height * 0.7 } });
+  await expect(viewer.locator('.edit-signature-box')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Save signed PDF' }).click();
+  await expect(page.locator('#status')).toContainText('1 edit');
+  const { name, bytes } = await downloadBytes(page);
+  expect(name).toBe('text-only-signed.pdf');
+  expect(bytes.toString('latin1')).toContain('/Subtype /Image');
   const origin = new URL(baseURL!).origin;
   for (const request of seen.requests) if (!request.url.startsWith('blob:')) expect(new URL(request.url).origin).toBe(origin);
   expect(seen.violations).toEqual([]);

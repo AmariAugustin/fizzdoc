@@ -207,6 +207,16 @@
     "ed.editText": "Tekst bewerken",
     "ed.addText": "Tekst toevoegen",
     "ed.whiteout": "Overschilderen",
+    "ed.signature": "Handtekening",
+    "ed.drawSignature": "Tekenen",
+    "ed.typeSignature": "Typen",
+    "ed.signatureText": "Typ je handtekening",
+    "ed.clearSignature": "Handtekening wissen",
+    "ed.placeSignature": "Handtekening plaatsen",
+    "ed.signatureHint": "Teken of typ een handtekening, kies Handtekening plaatsen en klik op de juiste plek. Sleep om te verplaatsen; gebruik de hoek om het formaat te wijzigen.",
+    "ed.moveSignature": "Sleep om de handtekening te verplaatsen",
+    "ed.resizeSignature": "Formaat van handtekening wijzigen",
+    "ed.removeSignature": "Handtekening verwijderen",
     "ed.undo": "Ongedaan maken",
     "ed.undoLabel": "Laatste bewerking ongedaan maken",
     "ed.zoomOut": "Uitzoomen",
@@ -744,6 +754,21 @@
         "tekst wit maken in pdf",
         "pdf editor zonder account"
       ]
+    },
+    "sign-pdf": {
+      "name": "PDF ondertekenen",
+      "summary": "Voeg een getekende of getypte handtekening toe aan een PDF.",
+      "action": "Ondertekende PDF opslaan",
+      "title": "PDF Gratis Ondertekenen — Teken of Typ | Fizzdoc",
+      "description": "Onderteken een PDF door je handtekening te tekenen of typen en plaats en schaal die op de pagina. Alles blijft op je apparaat; niets wordt geüpload. Gratis.",
+      "h1": "Onderteken een PDF zonder upload",
+      "lede": "Teken met een muis of vinger, of typ je naam. Plaats de handtekening op de pagina, verplaats of wijzig het formaat en sla de PDF op je apparaat op.",
+      "steps": [
+        "Voeg één PDF-bestand toe.",
+        "Teken of typ je handtekening, kies Handtekening plaatsen en klik op de juiste plek. Sleep om te verplaatsen of het formaat aan te passen.",
+        "Klik op “Ondertekende PDF opslaan” en download de kopie."
+      ],
+      "keywords": ["PDF ondertekenen", "handtekening toevoegen aan PDF", "handtekening tekenen in PDF", "handtekening typen in PDF", "contract online ondertekenen"]
     },
     "redact-pdf": {
       "name": "PDF zwart lakken",

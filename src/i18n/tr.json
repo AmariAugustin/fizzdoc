@@ -207,6 +207,16 @@
     "ed.editText": "Metni düzenle",
     "ed.addText": "Metin ekle",
     "ed.whiteout": "Beyazlatma",
+    "ed.signature": "İmza",
+    "ed.drawSignature": "Çiz",
+    "ed.typeSignature": "Yaz",
+    "ed.signatureText": "İmzanızı yazın",
+    "ed.clearSignature": "İmzayı temizle",
+    "ed.placeSignature": "İmzayı yerleştir",
+    "ed.signatureHint": "Bir imza çizin veya yazın, İmzayı yerleştir'i seçin ve istediğiniz yere tıklayın. Taşımak için sürükleyin; boyutunu köşeden ayarlayın.",
+    "ed.moveSignature": "İmzayı taşımak için sürükleyin",
+    "ed.resizeSignature": "İmza boyutunu ayarla",
+    "ed.removeSignature": "İmzayı kaldır",
     "ed.undo": "Geri al",
     "ed.undoLabel": "Son düzenlemeyi geri al",
     "ed.zoomOut": "Uzaklaştır",
@@ -744,6 +754,21 @@
         "pdf'de metni beyazlatma",
         "kayıtsız pdf düzenleyici"
       ]
+    },
+    "sign-pdf": {
+      "name": "PDF İmzala",
+      "summary": "PDF'ye çizilmiş veya yazılmış bir imza ekleyin.",
+      "action": "İmzalı PDF'yi Kaydet",
+      "title": "Ücretsiz PDF İmzala — İmza Çiz veya Yaz | Fizzdoc",
+      "description": "İmzanızı çizerek veya yazarak PDF'yi imzalayın; sayfaya yerleştirip boyutunu ayarlayın. Her şey cihazınızda kalır, dosya yüklenmez. Ücretsiz.",
+      "h1": "PDF'yi yüklemeden imzalayın",
+      "lede": "Fareyle veya parmağınızla çizin ya da adınızı yazın. İmzayı sayfaya yerleştirin, taşıyın veya boyutlandırın ve imzalı PDF'yi cihazınıza kaydedin.",
+      "steps": [
+        "Bir PDF dosyası ekleyin.",
+        "İmzanızı çizin veya yazın, İmza yerleştir'i seçin ve istediğiniz yere tıklayın. Taşımak veya boyutlandırmak için sürükleyin.",
+        "“İmzalı PDF'yi Kaydet” düğmesine tıklayıp kopyayı indirin."
+      ],
+      "keywords": ["PDF imzala", "PDF'ye imza ekle", "PDF üzerine imza çiz", "PDF imzası yaz", "sözleşmeyi çevrimiçi imzala"]
     },
     "redact-pdf": {
       "name": "PDF Karart",

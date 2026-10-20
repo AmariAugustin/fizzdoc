@@ -207,6 +207,16 @@
     "ed.editText": "Editar texto",
     "ed.addText": "Adicionar texto",
     "ed.whiteout": "Cobrir (branco)",
+    "ed.signature": "Assinatura",
+    "ed.drawSignature": "Desenhar",
+    "ed.typeSignature": "Digitar",
+    "ed.signatureText": "Digite sua assinatura",
+    "ed.clearSignature": "Limpar assinatura",
+    "ed.placeSignature": "Posicionar assinatura",
+    "ed.signatureHint": "Desenhe ou digite a assinatura, escolha Posicionar assinatura e clique no local desejado. Arraste para mover; use o canto para redimensionar.",
+    "ed.moveSignature": "Arraste para mover a assinatura",
+    "ed.resizeSignature": "Redimensionar assinatura",
+    "ed.removeSignature": "Remover assinatura",
     "ed.undo": "Desfazer",
     "ed.undoLabel": "Desfazer última edição",
     "ed.zoomOut": "Diminuir zoom",
@@ -744,6 +754,21 @@
         "cobrir texto em um pdf",
         "editor de pdf sem cadastro"
       ]
+    },
+    "sign-pdf": {
+      "name": "Assinar PDF",
+      "summary": "Adicione uma assinatura desenhada ou digitada ao PDF.",
+      "action": "Salvar PDF assinado",
+      "title": "Assinar PDF Grátis — Desenhe ou Digite a Assinatura | Fizzdoc",
+      "description": "Assine um PDF desenhando ou digitando sua assinatura; posicione-a e ajuste o tamanho na página. Tudo fica no seu dispositivo, sem envios. Grátis.",
+      "h1": "Assine um PDF sem enviá-lo",
+      "lede": "Desenhe com o mouse ou o dedo, ou digite seu nome. Posicione a assinatura na página, mova ou redimensione e salve o PDF assinado no seu dispositivo.",
+      "steps": [
+        "Adicione um arquivo PDF.",
+        "Desenhe ou digite sua assinatura, escolha Posicionar assinatura e clique no local desejado. Arraste para mover ou redimensionar.",
+        "Clique em “Salvar PDF assinado” e baixe a cópia."
+      ],
+      "keywords": ["assinar PDF", "adicionar assinatura ao PDF", "desenhar assinatura no PDF", "digitar assinatura no PDF", "assinar contrato online"]
     },
     "redact-pdf": {
       "name": "Censurar PDF",

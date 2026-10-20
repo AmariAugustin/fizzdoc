@@ -207,6 +207,16 @@
     "ed.editText": "Editar texto",
     "ed.addText": "Añadir texto",
     "ed.whiteout": "Tapar",
+    "ed.signature": "Firma",
+    "ed.drawSignature": "Dibujar",
+    "ed.typeSignature": "Escribir",
+    "ed.signatureText": "Escribe tu firma",
+    "ed.clearSignature": "Borrar firma",
+    "ed.placeSignature": "Colocar firma",
+    "ed.signatureHint": "Dibuja o escribe una firma, pulsa Colocar firma y haz clic donde debe ir. Arrástrala para moverla; usa la esquina para cambiar su tamaño.",
+    "ed.moveSignature": "Arrastrar para mover la firma",
+    "ed.resizeSignature": "Cambiar tamaño de la firma",
+    "ed.removeSignature": "Quitar firma",
     "ed.undo": "Deshacer",
     "ed.undoLabel": "Deshacer la última edición",
     "ed.zoomOut": "Alejar",
@@ -744,6 +754,21 @@
         "tapar texto en un pdf",
         "editor de pdf sin registrarse"
       ]
+    },
+    "sign-pdf": {
+      "name": "Firmar PDF",
+      "summary": "Añade una firma dibujada o escrita a tu PDF.",
+      "action": "Guardar PDF firmado",
+      "title": "Firmar PDF Gratis — Dibuja o Escribe tu Firma | Fizzdoc",
+      "description": "Firma un PDF dibujando o escribiendo tu firma, y colócala y ajusta su tamaño en la página. Todo queda en tu dispositivo; nada se sube. Gratis.",
+      "h1": "Firma un PDF sin subirlo",
+      "lede": "Dibuja con el ratón o el dedo, o escribe tu nombre. Coloca la firma en la página, muévela o cambia su tamaño y guarda el PDF firmado en tu dispositivo.",
+      "steps": [
+        "Añade un archivo PDF.",
+        "Dibuja o escribe tu firma, pulsa Colocar firma y haz clic donde corresponda. Arrástrala para moverla o cambiar su tamaño.",
+        "Pulsa «Guardar PDF firmado» y descarga la copia."
+      ],
+      "keywords": ["firmar un PDF", "añadir firma a un PDF", "dibujar firma en PDF", "escribir firma en PDF", "firmar contrato en línea"]
     },
     "redact-pdf": {
       "name": "Censurar PDF",

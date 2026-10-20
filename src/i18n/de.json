@@ -207,6 +207,16 @@
     "ed.editText": "Text bearbeiten",
     "ed.addText": "Text hinzufügen",
     "ed.whiteout": "Weiß überdecken",
+    "ed.signature": "Signatur",
+    "ed.drawSignature": "Zeichnen",
+    "ed.typeSignature": "Tippen",
+    "ed.signatureText": "Signatur eingeben",
+    "ed.clearSignature": "Signatur löschen",
+    "ed.placeSignature": "Signatur platzieren",
+    "ed.signatureHint": "Zeichnen oder tippen Sie eine Signatur, wählen Sie Signatur platzieren und klicken Sie auf die gewünschte Stelle. Ziehen Sie sie zum Verschieben; mit der Ecke ändern Sie die Größe.",
+    "ed.moveSignature": "Ziehen, um die Signatur zu verschieben",
+    "ed.resizeSignature": "Signaturgröße ändern",
+    "ed.removeSignature": "Signatur entfernen",
     "ed.undo": "Rückgängig",
     "ed.undoLabel": "Letzte Bearbeitung rückgängig machen",
     "ed.zoomOut": "Verkleinern",
@@ -744,6 +754,21 @@
         "text in einem pdf überdecken",
         "pdf editor ohne anmeldung"
       ]
+    },
+    "sign-pdf": {
+      "name": "PDF unterschreiben",
+      "summary": "Fügen Sie eine gezeichnete oder getippte Signatur zum PDF hinzu.",
+      "action": "Signiertes PDF speichern",
+      "title": "PDF kostenlos unterschreiben — Signatur zeichnen | Fizzdoc",
+      "description": "Unterschreiben Sie ein PDF, indem Sie Ihre Signatur zeichnen oder tippen, und platzieren und skalieren Sie sie. Alles bleibt auf Ihrem Gerät. Kostenlos.",
+      "h1": "Unterschreiben Sie ein PDF ohne Upload",
+      "lede": "Zeichnen Sie mit der Maus oder dem Finger, oder tippen Sie Ihren Namen. Platzieren, verschieben und vergrößern Sie die Signatur und speichern Sie das PDF lokal.",
+      "steps": [
+        "Fügen Sie eine PDF-Datei hinzu.",
+        "Zeichnen oder tippen Sie Ihre Signatur, wählen Sie Signatur platzieren und klicken Sie auf die gewünschte Stelle. Zum Verschieben oder Ändern der Größe ziehen.",
+        "Klicken Sie auf „Signiertes PDF speichern“ und laden Sie die Kopie herunter."
+      ],
+      "keywords": ["PDF unterschreiben", "Signatur zu PDF hinzufügen", "PDF-Signatur zeichnen", "PDF-Signatur tippen", "Vertrag online unterschreiben"]
     },
     "redact-pdf": {
       "name": "PDF schwärzen",

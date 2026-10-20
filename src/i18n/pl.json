@@ -207,6 +207,16 @@
     "ed.editText": "Edytuj tekst",
     "ed.addText": "Dodaj tekst",
     "ed.whiteout": "Zamalowanie",
+    "ed.signature": "Podpis",
+    "ed.drawSignature": "Narysuj",
+    "ed.typeSignature": "Wpisz",
+    "ed.signatureText": "Wpisz swój podpis",
+    "ed.clearSignature": "Wyczyść podpis",
+    "ed.placeSignature": "Umieść podpis",
+    "ed.signatureHint": "Narysuj lub wpisz podpis, wybierz Umieść podpis i kliknij w odpowiednim miejscu. Przeciągnij, aby go przesunąć; użyj narożnika, aby zmienić rozmiar.",
+    "ed.moveSignature": "Przeciągnij, aby przesunąć podpis",
+    "ed.resizeSignature": "Zmień rozmiar podpisu",
+    "ed.removeSignature": "Usuń podpis",
     "ed.undo": "Cofnij",
     "ed.undoLabel": "Cofnij ostatnią edycję",
     "ed.zoomOut": "Pomniejsz",
@@ -744,6 +754,21 @@
         "zamaluj tekst w pdf",
         "edytor pdf bez rejestracji"
       ]
+    },
+    "sign-pdf": {
+      "name": "Podpisz PDF",
+      "summary": "Dodaj do PDF podpis narysowany lub wpisany.",
+      "action": "Zapisz podpisany PDF",
+      "title": "Podpisz PDF Za Darmo — Narysuj lub Wpisz Podpis | Fizzdoc",
+      "description": "Podpisz PDF, rysując lub wpisując podpis, a następnie umieść go na stronie i zmień jego rozmiar. Wszystko pozostaje na Twoim urządzeniu. Bezpłatnie.",
+      "h1": "Podpisz PDF bez przesyłania pliku",
+      "lede": "Narysuj podpis myszą lub palcem albo wpisz swoje imię i nazwisko. Umieść podpis na stronie, przesuń go lub zmień rozmiar i zapisz PDF na urządzeniu.",
+      "steps": [
+        "Dodaj plik PDF.",
+        "Narysuj lub wpisz podpis, wybierz Umieść podpis i kliknij w odpowiednim miejscu. Przeciągnij, aby go przesunąć lub zmienić rozmiar.",
+        "Kliknij „Zapisz podpisany PDF” i pobierz kopię."
+      ],
+      "keywords": ["podpisz PDF", "dodaj podpis do PDF", "narysuj podpis na PDF", "wpisz podpis do PDF", "podpisz umowę online"]
     },
     "redact-pdf": {
       "name": "Cenzuruj PDF",

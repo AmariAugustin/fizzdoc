@@ -95,6 +95,7 @@ const ICON_PATHS: Record<ToolOp, string> = {
   'audio-merge': '<path d="M3 12h2M7 9v6M11 6v12"/><path d="M14 12h7M18 9l3 3-3 3"/>',
   transcribe: '<path d="M3 11v2M6.5 8v8M10 10v4"/><path d="M14 7h7M14 12h7M14 17h4"/>',
   'edit-pdf': '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  'sign-pdf': '<path d="M3 17c2.4-2.2 3.8 2.5 6.2.2s3.4-2.3 5.8-.3 4.1 2.2 6-1.4"/><path d="M4 21h16"/>',
   'redact-pdf': '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><rect x="7" y="12" width="10" height="3" fill="currentColor"/><path d="M7 18h6"/>',
   'scan-pdf': '<path d="M5 3h14v8H5z"/><path d="M3 11h18v4H3z"/><path d="M7 15v6h10v-6"/><path d="M9 18h6"/>',
   'ocr-pdf': SCAN,
@@ -300,7 +301,7 @@ function workspaceHtml(c: Copy, tool: Tool) {
               : null;
   const { accept, choose, multiple } = input(c, tool);
   return `
-<section class="workspace${tool.op === 'edit-pdf' || tool.op === 'redact-pdf' || tool.op === 'audio-split' ? ' wide' : ''}" id="workspace" data-multiple="${multiple}" aria-label="${esc(tool.name)}">
+<section class="workspace${tool.op === 'edit-pdf' || tool.op === 'sign-pdf' || tool.op === 'redact-pdf' || tool.op === 'audio-split' ? ' wide' : ''}" id="workspace" data-multiple="${multiple}" aria-label="${esc(tool.name)}">
   <label class="drop" id="drop">
     <input id="file-input" type="file" accept="${accept}"${multiple ? ' multiple' : ''}>
     <span class="drop-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V4"/><path d="m6 10 6-6 6 6"/><path d="M4 20h16"/></svg></span>
@@ -308,7 +309,7 @@ function workspaceHtml(c: Copy, tool: Tool) {
     <span>${esc(c.t(multiple ? 'ws.dropMany' : 'ws.dropOne'))}</span>
   </label>
   <ol id="file-list" class="file-list" aria-label="${esc(c.t('ws.files'))}"></ol>
-  ${['edit-pdf', 'redact-pdf', 'image-ocr', 'audio-split'].includes(tool.op) ? '<div id="viewer" class="viewer"></div>' : ''}
+  ${['edit-pdf', 'sign-pdf', 'redact-pdf', 'image-ocr', 'audio-split'].includes(tool.op) ? '<div id="viewer" class="viewer"></div>' : ''}
   ${multiple ? `<p class="hint" id="reorder-hint" hidden>${esc(c.t('ws.reorder'))}</p>` : ''}
   <div class="options">
     ${
